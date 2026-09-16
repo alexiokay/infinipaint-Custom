@@ -17,6 +17,7 @@
  */
 
 #include "ColorRectangleDisplay.hpp"
+#include <include/core/SkRRect.h>
 #include "../GUIManager.hpp"
 
 namespace GUIStuff {
