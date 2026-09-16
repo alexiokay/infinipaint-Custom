@@ -747,8 +747,8 @@ void DrawingProgram::tool_options_gui(Toolbar& t) {
                         CLAY(dragId, {
                             .layout = {
                                 .sizing = {.width = CLAY_SIZING_GROW(0), .height = CLAY_SIZING_GROW(0)},
-                                .childAlignment = {.x = CLAY_ALIGN_X_LEFT, .y = CLAY_ALIGN_Y_CENTER},
-                                .childGap = 6
+                                .childGap = 6,
+                                .childAlignment = {.x = CLAY_ALIGN_X_LEFT, .y = CLAY_ALIGN_Y_CENTER}
                             }
                         }) {
                             CLAY_AUTO_ID({.layout = {.sizing = {.width = CLAY_SIZING_FIXED(18), .height = CLAY_SIZING_FIXED(18)}}}) {
