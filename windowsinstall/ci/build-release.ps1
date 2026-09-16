@@ -32,6 +32,7 @@ try {
     Copy-Item $pdb ci-symbols
     Copy-Item assets/data ci-package/data -Recurse
     Copy-Item COPYING ci-package
+    Invoke-Checked conan @('cache','clean','*')
     $runtimeDlls = @(Get-ChildItem ci-runtime -Recurse -Filter '*.dll')
     if ($runtimeDlls.Count -eq 0) { throw 'Conan did not deploy runtime DLLs.' }
     foreach ($dll in $runtimeDlls) {

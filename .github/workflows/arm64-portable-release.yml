@@ -54,6 +54,13 @@ jobs:
           python-version: '3.12'
       - name: Install build tooling on the disposable GitHub runner only
         run: python -m pip install conan==2.32.0
+      - name: Cache Conan packages
+        uses: actions/cache@v4
+        with:
+          path: C:\c2
+          key: conan-arm64-${{ hashFiles('conanfile.py', 'conan/**', 'conan/profiles/win-arm64') }}
+          restore-keys: |
+            conan-arm64-
       - name: Clean ARM64 Release build and portable packaging
         shell: pwsh
         run: ./windowsinstall/ci/build-release.ps1
