@@ -51,10 +51,14 @@ try {
         Where-Object { Test-Path $_ } | Select-Object -First 1
     if (!$crt) { throw 'ARM64 app-local MSVC runtime not found.' }
     Copy-Item "$crt/*.dll" ci-package
+    Remove-Item (Join-Path ci-package 'vcruntime140_1.dll') -Force -ErrorAction SilentlyContinue
     foreach ($dll in Get-ChildItem ci-package -Filter '*.dll') {
         Invoke-Checked python @('windowsinstall/ci/verify-symbols.py',$dll.FullName)
     }
-    if (!(Test-Path ci-package/SDL3.dll)) { throw 'Missing SDL3.dll.' }
+    $requiredDlls = @('infinipaint.exe', 'hwloc.dll', 'vcruntime140.dll', 'msvcp140.dll')
+    foreach ($req in $requiredDlls) {
+        if (!(Test-Path (Join-Path ci-package $req))) { throw "Missing required package file: $req" }
+    }
     $sha = (& git rev-parse HEAD).Trim()
     $pins = & git submodule status
     $metadata = @"

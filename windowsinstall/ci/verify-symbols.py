@@ -59,10 +59,14 @@ def pdb_identity(data):
 
 if __name__ == "__main__":
     image = pathlib.Path(sys.argv[1])
-    identity = pe_identity(image.read_bytes())
+    try:
+        identity = pe_identity(image.read_bytes())
+    except Exception as e:
+        print(f"Verification error in {image.name}: {e}", file=sys.stderr)
+        raise
     if len(sys.argv) == 3:
         if identity is None or identity != pdb_identity(pathlib.Path(sys.argv[2]).read_bytes()):
-            raise SystemExit("Executable/PDB identity mismatch")
+            raise SystemExit(f"Executable/PDB identity mismatch: {image.name}")
         print(f"Verified ARM64 executable and matching PDB: {image.name}")
     else:
         print(f"Verified ARM64-compatible runtime: {image.name}")
