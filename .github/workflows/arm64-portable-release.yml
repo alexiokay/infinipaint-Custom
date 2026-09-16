@@ -6,6 +6,8 @@ on:
     paths:
       - '.github/workflows/arm64-portable-release.yml'
       - 'windowsinstall/ci/**'
+      - 'src/**'
+      - 'tests/**'
 permissions:
   contents: read
 concurrency:
