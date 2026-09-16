@@ -63,6 +63,8 @@ void SelectableButton::layout(const Clay_ElementId& id, const Data& d) {
     else
         backgroundColor = io.theme->fillColor2;
 
+    const uint16_t borderWidth = static_cast<uint16_t>(d.isSelected ? 2 : 1);
+
     CLAY(id, {.layout = { 
             .sizing = {.width = CLAY_SIZING_GROW(0), .height = CLAY_SIZING_GROW(0)},
             .childGap = 0,
@@ -72,7 +74,7 @@ void SelectableButton::layout(const Clay_ElementId& id, const Data& d) {
         .cornerRadius = CLAY_CORNER_RADIUS(io.theme->controlCorners),
         .border = {
             .color = convert_vec4<Clay_Color>(borderColor),
-            .width = CLAY_BORDER_OUTSIDE(d.isSelected ? 2 : 1)
+            .width = CLAY_BORDER_OUTSIDE(borderWidth)
         }
     }) {
         CLAY_AUTO_ID({.layout = { 
