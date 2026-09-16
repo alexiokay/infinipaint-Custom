@@ -172,46 +172,43 @@ void BrushTool::gui_inspector() {
             inspector_section(gui, "SIZE", [&] {
                 main.toolConfig.relative_width_gui(drawP, "Size");
             });
-            inspector_section(gui, "STROKE", [&] {
+            inspector_section(gui, "STROKE & DYNAMICS", [&] {
                 checkbox_boolean_field(gui, "hasroundcaps", "Round Caps", &drawP.world.main.toolConfig.brush.hasRoundCaps);
+                checkbox_boolean_field(gui, "pressure width", "Pressure affects size", &main.conf.tabletOptions.pressureAffectsBrushWidth);
+                checkbox_boolean_field(gui, "local correction", "Smooth wobble (Stabilizer)", &main.conf.tabletOptions.penFilter.enabled);
             });
-            inspector_section(gui, "PEN ENGINE", [&] {
-                using Engine = BrushPressure::Engine;
-                radio_button_selector<Engine>(gui, "pen engine", &main.toolConfig.brush.engine, {
-                    {"Original compatibility (default)", Engine::Compatibility},
-                    {"Sample pipeline (experimental)", Engine::Samples}
-                });
-            });
-            if (main.toolConfig.brush.samplePath()) {
-                inspector_section(gui, "PRESSURE RESPONSE", [&] {
-                    using Response = BrushPressure::Response;
-                    radio_button_selector<Response>(gui, "pressure mode", &main.toolConfig.brush.pressureResponse, {
-                        {"Preserve samples", Response::Preserve},
-                        {"Time-based width smoothing", Response::Time},
-                        {"Uniform peak width", Response::Peak},
-                        {"Legacy per-report propagation", Response::Original}
-                    });
-                    if (main.toolConfig.brush.pressureResponse == Response::Time)
-                        slider_scalar_field(gui, "pressure time", "Width decay (ms)", &main.toolConfig.brush.pressureTimeMs, 0.0, 200.0, {.decimalPrecision = 1});
-                    inspector_hint(gui, "Pressure changes width only, not correction or curve rendering.");
-                });
-                inspector_section(gui, "PATH CORRECTION", [&] {
-                    checkbox_boolean_field(gui, "local correction", "Local wobble correction", &main.conf.tabletOptions.penFilter.enabled);
-                });
-            } else {
-                inspector_hint(gui, "Original spacing, curves and pressure behavior. Sample options are inactive.");
-                if (main.conf.tabletOptions.penFilter.enabled)
-                    inspector_hint(gui, "Saved correction is ON but inactive in Original compatibility.");
-            }
             text_button(gui, "advanced", advancedSettingsOpen ? "Less" : "Advanced", {
                 .drawType = SelectableButton::DrawType::TRANSPARENT_BORDER,
                 .isSelected = advancedSettingsOpen, .wide = true,
                 .onClick = [this] { advancedSettingsOpen = !advancedSettingsOpen; }
             });
             if (advancedSettingsOpen) {
+                inspector_section(gui, "PEN ENGINE", [&] {
+                    using Engine = BrushPressure::Engine;
+                    radio_button_selector<Engine>(gui, "pen engine", &main.toolConfig.brush.engine, {
+                        {"Original compatibility (default)", Engine::Compatibility},
+                        {"Sample pipeline (experimental)", Engine::Samples}
+                    });
+                });
+                if (main.toolConfig.brush.samplePath()) {
+                    inspector_section(gui, "PRESSURE RESPONSE", [&] {
+                        using Response = BrushPressure::Response;
+                        radio_button_selector<Response>(gui, "pressure mode", &main.toolConfig.brush.pressureResponse, {
+                            {"Preserve samples", Response::Preserve},
+                            {"Time-based width smoothing", Response::Time},
+                            {"Uniform peak width", Response::Peak},
+                            {"Legacy per-report propagation", Response::Original}
+                        });
+                        if (main.toolConfig.brush.pressureResponse == Response::Time)
+                            slider_scalar_field(gui, "pressure time", "Width decay (ms)", &main.toolConfig.brush.pressureTimeMs, 0.0, 200.0, {.decimalPrecision = 1});
+                        inspector_hint(gui, "Pressure changes width only, not correction or curve rendering.");
+                    });
+                } else {
+                    inspector_hint(gui, "Original spacing, curves and pressure behavior. Sample options are inactive.");
+                    if (main.conf.tabletOptions.penFilter.enabled)
+                        inspector_hint(gui, "Saved correction is ON but inactive in Original compatibility.");
+                }
                 inspector_section(gui, "PEN RESPONSE", [&] {
-                    checkbox_boolean_field(gui, "pressure width", "Pressure affects size", &main.conf.tabletOptions.pressureAffectsBrushWidth);
-                    inspector_hint(gui, "Shared pen setting; also affects the eraser.");
                     if (main.conf.tabletOptions.pressureAffectsBrushWidth)
                         slider_scalar_field(gui, "minimum width", "Minimum width", &main.conf.tabletOptions.brushMinimumSize, 0.0f, 1.0f, {.decimalPrecision = 3});
                     if (!main.toolConfig.brush.samplePath() || main.toolConfig.brush.pressureResponse == BrushPressure::Response::Original) {

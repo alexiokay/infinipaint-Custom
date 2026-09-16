@@ -57,6 +57,8 @@ class SelectableButton : public Element {
         bool instantResponse = false;
         bool isHeld = false;
         bool isHovering = false;
+        Vector2f touchStartPos{0.0f, 0.0f};
+        bool hasMovedTouch = false;
         std::function<void()> onClick;
 };
 

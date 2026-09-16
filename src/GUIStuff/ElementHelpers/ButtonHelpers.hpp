@@ -78,13 +78,19 @@ template <typename T> SelectableButton* color_button(GUIManager& gui, const char
     SelectableButton* toRet;
     gui.new_id(id, [&] {
         SelectableButton::Data d = selectable_button_options_to_data(options);
-        d.innerContent = [&] (const SelectableButton::InnerContentCallbackParameters&) {
-            gui.element<ColorRectangleDisplay>("color display", [val, hasAlpha = options.hasAlpha] {
-                if(hasAlpha)
-                    return SkColor4f{(*val)[0], (*val)[1], (*val)[2], (*val)[3]};
-                else
-                    return SkColor4f{(*val)[0], (*val)[1], (*val)[2], 1.0f};
-            });
+        d.innerContent = [&] (const SelectableButton::InnerContentCallbackParameters& p) {
+            CLAY_AUTO_ID({.layout = {
+                .sizing = {.width = CLAY_SIZING_GROW(0), .height = CLAY_SIZING_GROW(0)},
+                .padding = p.isSelected ? CLAY_PADDING_ALL(2) : CLAY_PADDING_ALL(1),
+                .childAlignment = {.x = CLAY_ALIGN_X_CENTER, .y = CLAY_ALIGN_Y_CENTER}
+            }}) {
+                gui.element<ColorRectangleDisplay>("color display", [val, hasAlpha = options.hasAlpha] {
+                    if(hasAlpha)
+                        return SkColor4f{(*val)[0], (*val)[1], (*val)[2], (*val)[3]};
+                    else
+                        return SkColor4f{(*val)[0], (*val)[1], (*val)[2], 1.0f};
+                });
+            }
         };
         CLAY_AUTO_ID({.layout = {.sizing = {.width = CLAY_SIZING_FIXED(options.size), .height = CLAY_SIZING_FIXED(options.size) } } }) {
             toRet = gui.element<SelectableButton>("button", d);

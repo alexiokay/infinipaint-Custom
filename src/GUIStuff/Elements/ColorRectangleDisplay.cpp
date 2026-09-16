@@ -45,16 +45,19 @@ void ColorRectangleDisplay::clay_draw(SkCanvas* canvas, UpdateInputData& io, Cla
     auto& bb = boundingBox.value();
 
     SkRect r = SkRect::MakeLTRB(bb.min.x(), bb.min.y(), bb.max.x(), bb.max.y());
+    const float radius = std::max(2.0f, static_cast<float>(io.theme->controlCorners) - 1.0f);
+    SkRRect rrect;
+    rrect.setRectXY(r, radius, radius);
 
     if(drawVal.fA == 1.0f) {
         SkPaint p;
         p.setColor4f(drawVal);
         p.setAntiAlias(skiaAA);
-        canvas->drawRect(r, p);
+        canvas->drawRRect(rrect, p);
     }
     else {
         canvas->save();
-        canvas->clipRect(r, skiaAA);
+        canvas->clipRRect(rrect, skiaAA);
         SkPaint alphaPaint;
         alphaPaint.setShader(get_alpha_background_shader());
         canvas->drawPaint(alphaPaint);

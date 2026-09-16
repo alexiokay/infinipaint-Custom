@@ -391,8 +391,14 @@ void Toolbar::quick_colors() {
         for (size_t i=0;i<std::min<size_t>(3,palette.size());++i) {
             gui.new_id(static_cast<uint32_t>(i),[&,i] {
                 auto swatch=std::make_shared<Vector3f>(palette[i]);
+                const bool isSelected = (std::abs(selected->x() - palette[i].x()) < 0.02f &&
+                                         std::abs(selected->y() - palette[i].y()) < 0.02f &&
+                                         std::abs(selected->z() - palette[i].z()) < 0.02f);
                 color_button(gui,"quick swatch",swatch.get(),FixedSizeColorButtonOptions{
-                    .hasAlpha=false,.size=28,
+                    .drawType=SelectableButton::DrawType::TRANSPARENT_BORDER,
+                    .isSelected=isSelected,
+                    .hasAlpha=false,
+                    .size=28,
                     .onClick=[this,swatch] {
                         if(auto* c=main.world->drawProg.get_foreground_color_ptr()) {
                             c->x()=swatch->x(); c->y()=swatch->y(); c->z()=swatch->z();

@@ -69,12 +69,28 @@ void CheckBox::input_mouse_button_callback(const InputManager::MouseButtonCallba
 }
 
 void CheckBox::input_finger_touch_callback(const InputManager::FingerTouchCallbackArgs& touch) {
-    if(mouseHovering && touch.down) {
-        gui.set_post_callback_func([&](){if(onClick) onClick();});
-        isHeld = true;
-    }
-    else
+    if(touch.down) {
+        if(mouseHovering) {
+            isHeld = true;
+            touchStartPos = touch.pos;
+            hasMovedTouch = false;
+        }
+    } else {
+        if(mouseHovering && isHeld && !hasMovedTouch) {
+            gui.set_post_callback_func([&](){if(onClick) onClick();});
+        }
         isHeld = false;
+        hasMovedTouch = false;
+    }
+}
+
+void CheckBox::input_finger_motion_callback(const InputManager::FingerMotionCallbackArgs& motion) {
+    if(isHeld) {
+        if((motion.pos - touchStartPos).norm() > 8.0f) {
+            hasMovedTouch = true;
+            isHeld = false;
+        }
+    }
 }
 
 void CheckBox::clay_draw(SkCanvas* canvas, UpdateInputData& io, Clay_RenderCommand* command, bool skiaAA) {

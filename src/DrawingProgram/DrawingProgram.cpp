@@ -790,10 +790,7 @@ void DrawingProgram::tool_options_gui(Toolbar& t) {
                 });
 
                 left_to_right_layout(gui, CLAY_SIZING_GROW(0), CLAY_SIZING_FIXED(static_cast<float>(io.theme->controlHeight)), [&] {
-                    if (type == DrawingProgramToolType::BRUSH || type == DrawingProgramToolType::ERASER) {
-                        text_label(gui, type == DrawingProgramToolType::BRUSH ? "Size" : "Eraser");
-                        input_scalar(gui, "quick size", &world.main.toolConfig.get_stroke_size_relative_width_ref(type), 3.0f, 40.0f);
-                    }
+                    text_label(gui, "Colors");
                     t.quick_colors();
                 });
 

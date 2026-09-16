@@ -140,26 +140,45 @@ template <typename T> class NumberSlider : public Element {
 
         virtual void input_finger_touch_callback(const InputManager::FingerTouchCallbackArgs& touch) override {
             bool oldIsHeld = dd.isHeld;
-            dd.isHeld = mouseHovering && touch.down;
-            if(oldIsHeld && !dd.isHeld) {
-                gui.set_post_callback_func([&] {
-                    if(config.onRelease) config.onRelease();
-                });
+            if(touch.down) {
+                sliderTouchStart = touch.pos;
+                sliderScrollingAway = false;
+                dd.isHeld = mouseHovering;
+                if(dd.isHeld && boundingBox.has_value())
+                    update_slider_pos(touch.pos, true);
+            } else {
+                dd.isHeld = false;
+                sliderScrollingAway = false;
+                if(oldIsHeld) {
+                    gui.set_post_callback_func([&] {
+                        if(config.onRelease) config.onRelease();
+                    });
+                }
             }
-            else if(dd.isHeld && boundingBox.has_value())
-                update_slider_pos(touch.pos, true);
         }
 
         virtual void input_finger_motion_callback(const InputManager::FingerMotionCallbackArgs& motion) override {
-            if(dd.isHeld && boundingBox.has_value())
+            if(dd.isHeld && boundingBox.has_value()) {
+                if(!sliderScrollingAway) {
+                    Vector2f diff = motion.pos - sliderTouchStart;
+                    if(std::abs(diff.y()) > 10.0f && std::abs(diff.y()) > std::abs(diff.x()) * 1.5f) {
+                        sliderScrollingAway = true;
+                        dd.isHeld = false;
+                        gui.set_to_layout();
+                        return;
+                    }
+                }
                 update_slider_pos(motion.pos, false);
+            }
         }
 
     private:
+        Vector2f sliderTouchStart{0.0f, 0.0f};
+        bool sliderScrollingAway = false;
         void update_slider_pos(const Vector2f& p, bool justHeld) {
             gui.set_post_callback_func([&, p, justHeld] {
                 float fracPosOnSlider = UIControlGeometry::sliderFraction(boundingBox.value().width(), p.x()-boundingBox.value().min.x());
-                dd.val = *data = static_cast<T>(std::clamp<double>(std::lerp<double>(dd.minData, dd.maxData, fracPosOnSlider), dd.minData, dd.maxData)); // Clamp as double then cast so that unsigned types dont wrap on clamp
+                dd.val = *data = static_cast<T>(std::clamp<double>(std::lerp<double>(dd.minData, dd.maxData, fracPosOnSlider), dd.minData, dd.maxData));
                 if(justHeld && config.onHold) config.onHold();
                 if(config.onChange) config.onChange();
             });
