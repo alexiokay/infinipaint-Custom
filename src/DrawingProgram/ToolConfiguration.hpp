@@ -77,6 +77,75 @@ class ToolConfiguration {
             NLOHMANN_DEFINE_TYPE_INTRUSIVE_WITH_DEFAULT(GlobalConfig, useGlobalRelativeWidth, foregroundColor, backgroundColor, relativeWidth)
         } globalConf;
 
+        struct BrushPreset {
+            std::string name = "Brush";
+            float relativeWidth = 15.0f;
+            Vector4f color{1.0f, 1.0f, 1.0f, 1.0f};
+            bool hasRoundCaps = true;
+            BrushPressure::Engine engine = BrushPressure::Engine::Compatibility;
+            BrushPressure::Response pressureResponse = BrushPressure::Response::Time;
+            BrushPressure::Rendering rendering = BrushPressure::Rendering::Polyline;
+            double pressureTimeMs = 40.0;
+            bool localCorrection = false;
+            float smoothingFactor = 0.707f;
+            float minimumSize = 0.0f;
+            bool pressureAffectsWidth = true;
+
+            friend void to_json(nlohmann::json& j, const BrushPreset& p) {
+                const char* mode = p.pressureResponse == BrushPressure::Response::Preserve ? "preserve" :
+                    p.pressureResponse == BrushPressure::Response::Peak ? "peak" :
+                    p.pressureResponse == BrushPressure::Response::Time ? "time" : "original";
+                j = {
+                    {"name", p.name},
+                    {"relativeWidth", p.relativeWidth},
+                    {"color", {p.color[0], p.color[1], p.color[2], p.color[3]}},
+                    {"hasRoundCaps", p.hasRoundCaps},
+                    {"engine", p.engine == BrushPressure::Engine::Compatibility ? "original" : "samples"},
+                    {"pressureResponse", mode},
+                    {"rendering", p.rendering == BrushPressure::Rendering::Polyline ? "polyline" : "bounded"},
+                    {"pressureTimeMs", p.pressureTimeMs},
+                    {"localCorrection", p.localCorrection},
+                    {"smoothingFactor", p.smoothingFactor},
+                    {"minimumSize", p.minimumSize},
+                    {"pressureAffectsWidth", p.pressureAffectsWidth}
+                };
+            }
+
+            friend void from_json(const nlohmann::json& j, BrushPreset& p) {
+                p = BrushPreset{};
+                if (j.contains("name") && j["name"].is_string()) p.name = j["name"].get<std::string>();
+                if (j.contains("relativeWidth") && j["relativeWidth"].is_number()) p.relativeWidth = j["relativeWidth"].get<float>();
+                if (j.contains("color") && j["color"].is_array() && j["color"].size() >= 4) {
+                    p.color = Vector4f{j["color"][0].get<float>(), j["color"][1].get<float>(), j["color"][2].get<float>(), j["color"][3].get<float>()};
+                }
+                if (j.contains("hasRoundCaps") && j["hasRoundCaps"].is_boolean()) p.hasRoundCaps = j["hasRoundCaps"].get<bool>();
+                if (j.value("engine", "") == "samples") p.engine = BrushPressure::Engine::Samples;
+                else p.engine = BrushPressure::Engine::Compatibility;
+                if (j.contains("pressureResponse")) {
+                    std::string r = j["pressureResponse"].get<std::string>();
+                    if (r == "preserve") p.pressureResponse = BrushPressure::Response::Preserve;
+                    else if (r == "peak") p.pressureResponse = BrushPressure::Response::Peak;
+                    else if (r == "time") p.pressureResponse = BrushPressure::Response::Time;
+                    else p.pressureResponse = BrushPressure::Response::Original;
+                }
+                if (j.value("rendering", "") == "bounded") p.rendering = BrushPressure::Rendering::BoundedCurves;
+                else p.rendering = BrushPressure::Rendering::Polyline;
+                if (j.contains("pressureTimeMs") && j["pressureTimeMs"].is_number()) p.pressureTimeMs = j["pressureTimeMs"].get<double>();
+                if (j.contains("localCorrection") && j["localCorrection"].is_boolean()) p.localCorrection = j["localCorrection"].get<bool>();
+                if (j.contains("smoothingFactor") && j["smoothingFactor"].is_number()) p.smoothingFactor = j["smoothingFactor"].get<float>();
+                if (j.contains("minimumSize") && j["minimumSize"].is_number()) p.minimumSize = j["minimumSize"].get<float>();
+                if (j.contains("pressureAffectsWidth") && j["pressureAffectsWidth"].is_boolean()) p.pressureAffectsWidth = j["pressureAffectsWidth"].get<bool>();
+            }
+        };
+
+        std::vector<BrushPreset> presets;
+        int selectedPreset = -1;
+
+        void init_default_presets_if_empty();
+        void apply_brush_preset(DrawingProgram& drawP, size_t index);
+        void save_current_brush_preset(DrawingProgram& drawP, const std::string& customName = "");
+        void delete_brush_preset(size_t index);
+
         enum class RelativeWidthFailCode {
             SUCCESS,
             TOO_ZOOMED_IN,
@@ -90,5 +159,5 @@ class ToolConfiguration {
         void print_relative_width_fail_message(RelativeWidthFailCode failCode);
         void relative_width_gui(DrawingProgram& drawP, const char* label);
 
-        NLOHMANN_DEFINE_TYPE_INTRUSIVE_WITH_DEFAULT(ToolConfiguration, brush, toolPanel, eraser, ellipseDraw, rectDraw, eyeDropper, lineDraw, screenshot, globalConf)
+        NLOHMANN_DEFINE_TYPE_INTRUSIVE_WITH_DEFAULT(ToolConfiguration, brush, toolPanel, eraser, ellipseDraw, rectDraw, eyeDropper, lineDraw, screenshot, globalConf, presets, selectedPreset)
 };

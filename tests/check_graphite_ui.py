@@ -95,6 +95,30 @@ class GraphiteUI(unittest.TestCase):
         self.assertIn("SkColor4f{0, 0, 0, 1}", overlay)
         self.assertIn("SkColor4f{1, 1, 1, 1}", overlay)
 
+    def test_zen_launcher_and_brush_presets(self):
+        panel = source("src/DrawingProgram/DrawingProgram.cpp")
+        self.assertIn('"tool launcher circle"', panel)
+        self.assertIn('"tool panel card"', panel)
+        self.assertIn('"BRUSH SETUPS"', panel)
+        self.assertIn('"preset save"', panel)
+        self.assertIn('"panel close"', panel)
+        self.assertIn("toolPanelDragMoved", panel)
+
+        tool_cfg = source("src/DrawingProgram/ToolConfiguration.hpp")
+        self.assertIn("struct BrushPreset", tool_cfg)
+        self.assertIn("std::vector<BrushPreset> presets;", tool_cfg)
+        self.assertIn("init_default_presets_if_empty()", tool_cfg)
+        self.assertIn("apply_brush_preset(DrawingProgram& drawP, size_t index)", tool_cfg)
+        self.assertIn("save_current_brush_preset(DrawingProgram& drawP", tool_cfg)
+        self.assertIn("delete_brush_preset(size_t index)", tool_cfg)
+        self.assertIn("NLOHMANN_DEFINE_TYPE_INTRUSIVE_WITH_DEFAULT(ToolConfiguration, brush, toolPanel, eraser, ellipseDraw, rectDraw, eyeDropper, lineDraw, screenshot, globalConf, presets, selectedPreset)", tool_cfg)
+
+        impl = source("src/DrawingProgram/ToolConfiguration.cpp")
+        self.assertIn('"Studio Pen"', impl)
+        self.assertIn('"Fine Liner"', impl)
+        self.assertIn('"Soft Pencil"', impl)
+        self.assertIn('"Marker"', impl)
+
 
 if __name__ == "__main__":
     unittest.main()

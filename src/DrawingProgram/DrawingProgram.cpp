@@ -55,6 +55,7 @@
 
 #include "../GUIStuff/Elements/LayoutElement.hpp"
 #include "../GUIStuff/Elements/ScrollArea.hpp"
+#include "../GUIStuff/Elements/SVGIcon.hpp"
 #include "../GUIStuff/Elements/RotateWheel.hpp"
 #include "../GUIStuff/Elements/PositionAdjustingPopupMenu.hpp"
 #include "../GUIStuff/ElementHelpers/ButtonHelpers.hpp"
@@ -554,6 +555,46 @@ void DrawingProgram::right_click_action_menu(Vector2f popupPos, const std::funct
     });
 }
 
+static const char* get_tool_icon_path(DrawingProgramToolType type) {
+    switch(type) {
+        case DrawingProgramToolType::BRUSH: return "data/icons/brush.svg";
+        case DrawingProgramToolType::ERASER: return "data/icons/eraser.svg";
+        case DrawingProgramToolType::LASSOSELECT: return "data/icons/lassoselect.svg";
+        case DrawingProgramToolType::RECTSELECT: return "data/icons/rectselect.svg";
+        case DrawingProgramToolType::RECTANGLE: return "data/icons/rectangle.svg";
+        case DrawingProgramToolType::ELLIPSE: return "data/icons/circle.svg";
+        case DrawingProgramToolType::TEXTBOX: return "data/icons/text.svg";
+        case DrawingProgramToolType::EYEDROPPER: return "data/icons/eyedropper.svg";
+        case DrawingProgramToolType::SCREENSHOT: return "data/icons/camera.svg";
+        case DrawingProgramToolType::GRIDMODIFY: return "data/icons/grid.svg";
+        case DrawingProgramToolType::EDIT: return "data/icons/pencil.svg";
+        case DrawingProgramToolType::ZOOM: return "data/icons/zoom.svg";
+        case DrawingProgramToolType::PAN: return "data/icons/hand.svg";
+        case DrawingProgramToolType::LINE: return "data/icons/line.svg";
+        default: return "data/icons/brush.svg";
+    }
+}
+
+static const char* get_tool_title(DrawingProgramToolType type) {
+    switch(type) {
+        case DrawingProgramToolType::BRUSH: return "Brush Studio";
+        case DrawingProgramToolType::ERASER: return "Eraser";
+        case DrawingProgramToolType::LASSOSELECT: return "Lasso Select";
+        case DrawingProgramToolType::RECTSELECT: return "Rect Select";
+        case DrawingProgramToolType::RECTANGLE: return "Rectangle";
+        case DrawingProgramToolType::ELLIPSE: return "Ellipse";
+        case DrawingProgramToolType::TEXTBOX: return "Text Box";
+        case DrawingProgramToolType::EYEDROPPER: return "Eyedropper";
+        case DrawingProgramToolType::SCREENSHOT: return "Screenshot";
+        case DrawingProgramToolType::GRIDMODIFY: return "Grid Modify";
+        case DrawingProgramToolType::EDIT: return "Edit Tool";
+        case DrawingProgramToolType::ZOOM: return "Zoom";
+        case DrawingProgramToolType::PAN: return "Pan";
+        case DrawingProgramToolType::LINE: return "Line";
+        default: return "Tool Options";
+    }
+}
+
 void DrawingProgram::tool_options_gui(Toolbar& t) {
     using namespace GUIStuff;
     using namespace GUIStuff::ElementHelpers;
@@ -565,107 +606,263 @@ void DrawingProgram::tool_options_gui(Toolbar& t) {
         (toolPanelDragDevice==InputManager::MouseDeviceType::MOUSE && !world.main.input.mouse.leftDown) ||
         (toolPanelDragDevice==InputManager::MouseDeviceType::PEN && !world.main.input.pen.isDown))
         toolPanelDragging=false;
-    const float width=std::min(320.0f,std::max(80.0f,io.safeWindowRect.width()-16));
-    const float height=toolPanelExpanded ? std::min(560.0f,std::max(100.0f,io.safeWindowRect.height()-90)) : 2.0f*io.theme->controlHeight+22.0f;
-    const Vector2f origin=io.safeWindowRect.min+Vector2f{8,56};
-    const Vector2f available{std::max(0.0f,io.safeWindowRect.width()-width-16),
-        std::max(0.0f,io.safeWindowRect.height()-height-64)};
-    const float anchorHeight=std::max(0.0f,io.safeWindowRect.height()-(2.0f*io.theme->controlHeight+22.0f)-64);
-    const Vector2f position{UIControlGeometry::panelOffset(available.x(),prefs.x),
-        std::min(available.y(),UIControlGeometry::panelOffset(anchorHeight,prefs.y))};
-    gui.set_z_index(gui.get_z_index()+1,[&] {
-        gui.element<LayoutElement>("tool panel", [&](LayoutElement*,const Clay_ElementId& id) {
+
+    const auto type = drawTool->get_type();
+    const float circleSize = 44.0f;
+    const float width = toolPanelExpanded ? std::min(320.0f, std::max(120.0f, io.safeWindowRect.width() - 16.0f)) : circleSize;
+    const float height = toolPanelExpanded ? std::min(580.0f, std::max(120.0f, io.safeWindowRect.height() - 90.0f)) : circleSize;
+    const Vector2f origin = io.safeWindowRect.min + Vector2f{8, 56};
+    const float anchorHeight = std::max(0.0f, io.safeWindowRect.height() - height - 64.0f);
+    const Vector2f available{std::max(0.0f, io.safeWindowRect.width() - width - 16.0f), anchorHeight};
+    const Vector2f position{
+        std::clamp(UIControlGeometry::panelOffset(available.x(), prefs.x), 0.0f, available.x()),
+        std::clamp(UIControlGeometry::panelOffset(anchorHeight, prefs.y), 0.0f, available.y())
+    };
+
+    auto makeDragCallbacks = [&](bool isCircle) {
+        return LayoutElement::Callbacks{
+            .mouseButton = [this, position, isCircle](LayoutElement* l, const InputManager::MouseButtonCallbackArgs& b) {
+                if (b.button != InputManager::MouseButton::LEFT) return;
+                if (b.down && l->mouseHovering && !toolPanelDragging) {
+                    toolPanelDragging = true;
+                    toolPanelDragDevice = b.deviceType;
+                    toolPanelDragPen = b.penId;
+                    toolPanelDragStart = b.pos;
+                    toolPanelStartPosition = position;
+                    toolPanelDragMoved = false;
+                } else if (!b.down && b.deviceType == toolPanelDragDevice &&
+                    (b.deviceType != InputManager::MouseDeviceType::PEN || b.penId == toolPanelDragPen)) {
+                    if (isCircle && !toolPanelDragMoved) {
+                        toolPanelExpanded = true;
+                        world.main.g.gui.set_to_layout();
+                    }
+                    toolPanelDragging = false;
+                }
+            },
+            .mouseMotion = [this, available, anchorHeight](LayoutElement*, const InputManager::MouseMotionCallbackArgs& m) {
+                if (!toolPanelDragging || m.deviceType != toolPanelDragDevice ||
+                    (m.deviceType == InputManager::MouseDeviceType::PEN && m.penId != toolPanelDragPen)) return;
+                if ((m.pos - toolPanelDragStart).norm() > 4.0f) {
+                    toolPanelDragMoved = true;
+                }
+                if (toolPanelDragMoved) {
+                    const auto p = toolPanelStartPosition + m.pos - toolPanelDragStart;
+                    auto& prefs = world.main.toolConfig.toolPanel;
+                    prefs.x = UIControlGeometry::panelFraction(available.x(), p.x());
+                    prefs.y = UIControlGeometry::panelFraction(anchorHeight, std::clamp(p.y(), 0.0f, available.y()));
+                    world.main.g.gui.set_to_layout();
+                }
+            },
+            .fingerTouch = [this, position, isCircle](LayoutElement* l, const InputManager::FingerTouchCallbackArgs& f) {
+                if (toolPanelDragging && toolPanelDragDevice != InputManager::MouseDeviceType::TOUCH) return;
+                if (f.fingerDownCount > 1) { toolPanelDragging = false; return; }
+                if (f.down && l->mouseHovering) {
+                    toolPanelDragging = true;
+                    toolPanelDragDevice = InputManager::MouseDeviceType::TOUCH;
+                    toolPanelDragFinger = f.fingerID;
+                    toolPanelDragStart = f.pos;
+                    toolPanelStartPosition = position;
+                    toolPanelDragMoved = false;
+                } else if (!f.down && f.fingerID == toolPanelDragFinger) {
+                    if (isCircle && !toolPanelDragMoved) {
+                        toolPanelExpanded = true;
+                        world.main.g.gui.set_to_layout();
+                    }
+                    toolPanelDragging = false;
+                }
+            },
+            .fingerMotion = [this, available, anchorHeight](LayoutElement*, const InputManager::FingerMotionCallbackArgs& f) {
+                if (!toolPanelDragging || toolPanelDragDevice != InputManager::MouseDeviceType::TOUCH) return;
+                if (f.fingerDownCount != 1) { toolPanelDragging = false; return; }
+                if (f.fingerID != toolPanelDragFinger) return;
+                if ((f.pos - toolPanelDragStart).norm() > 6.0f) {
+                    toolPanelDragMoved = true;
+                }
+                if (toolPanelDragMoved) {
+                    const auto p = toolPanelStartPosition + f.pos - toolPanelDragStart;
+                    auto& prefs = world.main.toolConfig.toolPanel;
+                    prefs.x = UIControlGeometry::panelFraction(available.x(), p.x());
+                    prefs.y = UIControlGeometry::panelFraction(anchorHeight, std::clamp(p.y(), 0.0f, available.y()));
+                    world.main.g.gui.set_to_layout();
+                }
+            }
+        };
+    };
+
+    if (!toolPanelExpanded) {
+        gui.set_z_index(gui.get_z_index() + 1, [&] {
+            gui.element<LayoutElement>("tool launcher circle", [&](LayoutElement*, const Clay_ElementId& id) {
+                CLAY(id, {
+                    .layout = {
+                        .sizing = {.width = CLAY_SIZING_FIXED(circleSize), .height = CLAY_SIZING_FIXED(circleSize)},
+                        .padding = CLAY_PADDING_ALL(4),
+                        .childAlignment = {.x = CLAY_ALIGN_X_CENTER, .y = CLAY_ALIGN_Y_CENTER},
+                        .layoutDirection = CLAY_TOP_TO_BOTTOM
+                    },
+                    .backgroundColor = convert_vec4<Clay_Color>(color_mul_alpha(io.theme->backColor1, 0.92f)),
+                    .cornerRadius = CLAY_CORNER_RADIUS(circleSize * 0.5f),
+                    .floating = {
+                        .offset = {origin.x() + position.x(), origin.y() + position.y()},
+                        .zIndex = gui.get_z_index(),
+                        .attachPoints = {.element = CLAY_ATTACH_POINT_LEFT_TOP, .parent = CLAY_ATTACH_POINT_LEFT_TOP},
+                        .attachTo = CLAY_ATTACH_TO_ROOT
+                    },
+                    .border = {.color = convert_vec4<Clay_Color>(color_mul_alpha(io.theme->fillColor1, 0.45f)), .width = CLAY_BORDER_OUTSIDE(1)}
+                }) {
+                    CLAY_AUTO_ID({.layout = {.sizing = {.width = CLAY_SIZING_FIXED(22), .height = CLAY_SIZING_FIXED(22)}}}) {
+                        gui.element<SVGIcon>("launcher ico", get_tool_icon_path(type), false);
+                    }
+                    CLAY_AUTO_ID({
+                        .layout = {.sizing = {.width = CLAY_SIZING_FIXED(12), .height = CLAY_SIZING_FIXED(3)}},
+                        .backgroundColor = convert_vec4<Clay_Color>(world.main.toolConfig.globalConf.foregroundColor),
+                        .cornerRadius = CLAY_CORNER_RADIUS(1.5f)
+                    }) {}
+                }
+            }, makeDragCallbacks(true));
+        });
+        return;
+    }
+
+    gui.set_z_index(gui.get_z_index() + 1, [&] {
+        gui.element<LayoutElement>("tool panel card", [&](LayoutElement*, const Clay_ElementId& id) {
             CLAY(id, {
                 .layout = {
-                    .sizing = {.width=CLAY_SIZING_FIXED(width),.height=CLAY_SIZING_FIXED(height)},
-                    .padding=CLAY_PADDING_ALL(8),.childGap=6,.layoutDirection=CLAY_TOP_TO_BOTTOM
+                    .sizing = {.width = CLAY_SIZING_FIXED(width), .height = CLAY_SIZING_FIXED(height)},
+                    .padding = CLAY_PADDING_ALL(8),
+                    .childGap = 6,
+                    .layoutDirection = CLAY_TOP_TO_BOTTOM
                 },
-                .backgroundColor=convert_vec4<Clay_Color>(io.theme->backColor1),
-                .cornerRadius=CLAY_CORNER_RADIUS(io.theme->windowCorners1),
-                .floating={
-                    .offset={origin.x()+position.x(),origin.y()+position.y()},
-                    .zIndex=gui.get_z_index(),
-                    .attachPoints={.element=CLAY_ATTACH_POINT_LEFT_TOP,.parent=CLAY_ATTACH_POINT_LEFT_TOP},
-                    .attachTo=CLAY_ATTACH_TO_ROOT
-                }
+                .backgroundColor = convert_vec4<Clay_Color>(color_mul_alpha(io.theme->backColor1, 0.97f)),
+                .cornerRadius = CLAY_CORNER_RADIUS(io.theme->windowCorners1),
+                .floating = {
+                    .offset = {origin.x() + position.x(), origin.y() + position.y()},
+                    .zIndex = gui.get_z_index(),
+                    .attachPoints = {.element = CLAY_ATTACH_POINT_LEFT_TOP, .parent = CLAY_ATTACH_POINT_LEFT_TOP},
+                    .attachTo = CLAY_ATTACH_TO_ROOT
+                },
+                .border = {.color = convert_vec4<Clay_Color>(color_mul_alpha(io.theme->fillColor2, 0.5f)), .width = CLAY_BORDER_OUTSIDE(1)}
             }) {
-                left_to_right_layout(gui,CLAY_SIZING_GROW(0),CLAY_SIZING_FIXED(static_cast<float>(io.theme->controlHeight)),[&] {
-                    gui.element<LayoutElement>("drag tool panel",[&](LayoutElement*,const Clay_ElementId& dragId) {
-                        CLAY(dragId,{.layout={
-                            .sizing={.width=CLAY_SIZING_GROW(0),.height=CLAY_SIZING_GROW(0)},
-                            .childAlignment={.x=CLAY_ALIGN_X_LEFT,.y=CLAY_ALIGN_Y_CENTER}
-                        }}) { text_label(gui,"Drag"); }
-                    },LayoutElement::Callbacks{
-                        .mouseButton=[this,position](LayoutElement* l,const InputManager::MouseButtonCallbackArgs& b) {
-                            if(b.button!=InputManager::MouseButton::LEFT) return;
-                            if(b.down && l->mouseHovering && !toolPanelDragging) {
-                                toolPanelDragging=true; toolPanelDragDevice=b.deviceType; toolPanelDragPen=b.penId;
-                                toolPanelDragStart=b.pos; toolPanelStartPosition=position;
-                            } else if(!b.down && b.deviceType==toolPanelDragDevice &&
-                                (b.deviceType!=InputManager::MouseDeviceType::PEN || b.penId==toolPanelDragPen)) toolPanelDragging=false;
-                        },
-                        .mouseMotion=[this,available,anchorHeight](LayoutElement*,const InputManager::MouseMotionCallbackArgs& m) {
-                            if(!toolPanelDragging || m.deviceType!=toolPanelDragDevice ||
-                                (m.deviceType==InputManager::MouseDeviceType::PEN && m.penId!=toolPanelDragPen)) return;
-                            const auto p=toolPanelStartPosition+m.pos-toolPanelDragStart;
-                            auto& prefs=world.main.toolConfig.toolPanel;
-                            prefs.x=UIControlGeometry::panelFraction(available.x(),p.x());
-                            prefs.y=UIControlGeometry::panelFraction(anchorHeight,std::clamp(p.y(),0.0f,available.y()));
-                            world.main.g.gui.set_to_layout();
-                        },
-                        .fingerTouch=[this,position](LayoutElement* l,const InputManager::FingerTouchCallbackArgs& f) {
-                            if(toolPanelDragging && toolPanelDragDevice!=InputManager::MouseDeviceType::TOUCH) return;
-                            if(f.fingerDownCount>1) { toolPanelDragging=false; return; }
-                            if(f.down && l->mouseHovering) {
-                                toolPanelDragging=true; toolPanelDragDevice=InputManager::MouseDeviceType::TOUCH;
-                                toolPanelDragFinger=f.fingerID; toolPanelDragStart=f.pos; toolPanelStartPosition=position;
-                            } else if(!f.down && f.fingerID==toolPanelDragFinger) toolPanelDragging=false;
-                        },
-                        .fingerMotion=[this,available,anchorHeight](LayoutElement*,const InputManager::FingerMotionCallbackArgs& f) {
-                            if(!toolPanelDragging || toolPanelDragDevice!=InputManager::MouseDeviceType::TOUCH) return;
-                            if(f.fingerDownCount!=1) { toolPanelDragging=false; return; }
-                            if(f.fingerID!=toolPanelDragFinger) return;
-                            const auto p=toolPanelStartPosition+f.pos-toolPanelDragStart;
-                            auto& prefs=world.main.toolConfig.toolPanel;
-                            prefs.x=UIControlGeometry::panelFraction(available.x(),p.x());
-                            prefs.y=UIControlGeometry::panelFraction(anchorHeight,std::clamp(p.y(),0.0f,available.y()));
+                left_to_right_layout(gui, CLAY_SIZING_GROW(0), CLAY_SIZING_FIXED(static_cast<float>(io.theme->controlHeight)), [&] {
+                    gui.element<LayoutElement>("drag tool panel", [&](LayoutElement*, const Clay_ElementId& dragId) {
+                        CLAY(dragId, {
+                            .layout = {
+                                .sizing = {.width = CLAY_SIZING_GROW(0), .height = CLAY_SIZING_GROW(0)},
+                                .childAlignment = {.x = CLAY_ALIGN_X_LEFT, .y = CLAY_ALIGN_Y_CENTER},
+                                .childGap = 6
+                            }
+                        }) {
+                            CLAY_AUTO_ID({.layout = {.sizing = {.width = CLAY_SIZING_FIXED(18), .height = CLAY_SIZING_FIXED(18)}}}) {
+                                gui.element<SVGIcon>("hdr ico", get_tool_icon_path(type), false);
+                            }
+                            text_label(gui, get_tool_title(type));
+                        }
+                    }, makeDragCallbacks(false));
+
+                    text_button(gui, "panel pin", prefs.pinned ? "Pinned" : "Pin", {
+                        .drawType = prefs.pinned ? SelectableButton::DrawType::FILLED : SelectableButton::DrawType::TRANSPARENT_BORDER,
+                        .isSelected = prefs.pinned,
+                        .onClick = [this] {
+                            auto& p = world.main.toolConfig.toolPanel;
+                            p.pinned = !p.pinned;
+                            if (p.pinned) toolPanelExpanded = true;
                             world.main.g.gui.set_to_layout();
                         }
                     });
-                    text_button(gui,"panel expand",toolPanelExpanded ? "Hide" : "Options",{.onClick=[this] {
-                        toolPanelExpanded=!toolPanelExpanded; world.main.g.gui.set_to_layout();
-                    }});
-                    text_button(gui,"panel pin","Pin",{.isSelected=prefs.pinned,.onClick=[this] {
-                        auto& p=world.main.toolConfig.toolPanel; p.pinned=!p.pinned;
-                        if(p.pinned) toolPanelExpanded=true;
-                        world.main.g.gui.set_to_layout();
-                    }});
-                    text_button(gui,"panel reset","Reset",{.onClick=[this] {
-                        auto& p=world.main.toolConfig.toolPanel; p.x=1; p.y=.25f;
-                        toolPanelDragging=false; world.main.g.gui.set_to_layout();
-                    }});
+
+                    text_button(gui, "panel reset", "Reset", {
+                        .drawType = SelectableButton::DrawType::TRANSPARENT_BORDER,
+                        .onClick = [this] {
+                            auto& p = world.main.toolConfig.toolPanel;
+                            p.x = 1.0f;
+                            p.y = 0.25f;
+                            toolPanelDragging = false;
+                            world.main.g.gui.set_to_layout();
+                        }
+                    });
+
+                    text_button(gui, "panel close", "✕", {
+                        .drawType = SelectableButton::DrawType::TRANSPARENT_BORDER,
+                        .onClick = [this] {
+                            toolPanelExpanded = false;
+                            world.main.g.gui.set_to_layout();
+                        }
+                    });
                 });
-                if (!toolPanelExpanded) {
-                    left_to_right_layout(gui,CLAY_SIZING_GROW(0),CLAY_SIZING_FIXED(static_cast<float>(io.theme->controlHeight)),[&] {
-                        const auto type=drawTool->get_type();
-                        if(type==DrawingProgramToolType::BRUSH || type==DrawingProgramToolType::ERASER) {
-                            text_label(gui,type==DrawingProgramToolType::BRUSH ? "Brush" : "Eraser");
-                            input_scalar(gui,"quick size",&world.main.toolConfig.get_stroke_size_relative_width_ref(type),3.0f,40.0f);
+
+                left_to_right_layout(gui, CLAY_SIZING_GROW(0), CLAY_SIZING_FIXED(static_cast<float>(io.theme->controlHeight)), [&] {
+                    if (type == DrawingProgramToolType::BRUSH || type == DrawingProgramToolType::ERASER) {
+                        text_label(gui, type == DrawingProgramToolType::BRUSH ? "Size" : "Eraser");
+                        input_scalar(gui, "quick size", &world.main.toolConfig.get_stroke_size_relative_width_ref(type), 3.0f, 40.0f);
+                    }
+                    t.quick_colors();
+                });
+
+                if (type == DrawingProgramToolType::BRUSH) {
+                    auto& toolConf = world.main.toolConfig;
+                    toolConf.init_default_presets_if_empty();
+
+                    const float rowH = static_cast<float>(io.theme->controlHeight) * 0.9f;
+                    CLAY_AUTO_ID({.layout = {
+                        .sizing = {.width = CLAY_SIZING_GROW(0), .height = CLAY_SIZING_FIT(0)},
+                        .padding = CLAY_PADDING_ALL(2),
+                        .childGap = 4,
+                        .layoutDirection = CLAY_TOP_TO_BOTTOM
+                    }}) {
+                        left_to_right_layout(gui, CLAY_SIZING_GROW(0), CLAY_SIZING_FIXED(22.0f), [&] {
+                            text_label(gui, "BRUSH SETUPS");
+                            CLAY_AUTO_ID({.layout = {.sizing = {.width = CLAY_SIZING_GROW(0), .height = CLAY_SIZING_GROW(0)}}}) {}
+                            text_button(gui, "preset save", "+ Save Current", {
+                                .drawType = SelectableButton::DrawType::TRANSPARENT_BORDER,
+                                .onClick = [this] {
+                                    world.main.toolConfig.save_current_brush_preset(*this);
+                                }
+                            });
+                        });
+
+                        for (size_t i = 0; i < toolConf.presets.size(); i += 2) {
+                            gui.new_id(static_cast<uint32_t>(2000 + i), [&, i] {
+                                left_to_right_layout(gui, CLAY_SIZING_GROW(0), CLAY_SIZING_FIXED(rowH), [&] {
+                                    const bool isSel1 = (toolConf.selectedPreset == static_cast<int>(i));
+                                    text_button(gui, "preset1", toolConf.presets[i].name, {
+                                        .drawType = isSel1 ? SelectableButton::DrawType::FILLED : SelectableButton::DrawType::TRANSPARENT_BORDER,
+                                        .isSelected = isSel1,
+                                        .wide = true,
+                                        .onClick = [this, i] {
+                                            world.main.toolConfig.apply_brush_preset(*this, i);
+                                        }
+                                    });
+                                    if (i + 1 < toolConf.presets.size()) {
+                                        const bool isSel2 = (toolConf.selectedPreset == static_cast<int>(i + 1));
+                                        text_button(gui, "preset2", toolConf.presets[i + 1].name, {
+                                            .drawType = isSel2 ? SelectableButton::DrawType::FILLED : SelectableButton::DrawType::TRANSPARENT_BORDER,
+                                            .isSelected = isSel2,
+                                            .wide = true,
+                                            .onClick = [this, i] {
+                                                world.main.toolConfig.apply_brush_preset(*this, i + 1);
+                                            }
+                                        });
+                                    }
+                                });
+                            });
                         }
-                        t.quick_colors();
-                    });
-                } else {
-                    gui.clipping_element<ScrollArea>("tool inspector scroll",ScrollArea::Options{
-                        .scrollVertical=true,.clipHorizontal=true,.clipVertical=true,
-                        .scrollbarY=ScrollArea::ScrollbarType::NORMAL,
-                        .innerContent=[&](const ScrollArea::InnerContentParameters&) {
-                            CLAY_AUTO_ID({.layout={
-                                .sizing={.width=CLAY_SIZING_GROW(0),.height=CLAY_SIZING_FIT(0)},
-                                .childGap=6,.layoutDirection=CLAY_TOP_TO_BOTTOM
-                            }}) { drawTool->gui_toolbox(t); }
-                        }
-                    });
+                    }
                 }
+
+                gui.clipping_element<ScrollArea>("tool inspector scroll", ScrollArea::Options{
+                    .scrollVertical = true,
+                    .clipHorizontal = true,
+                    .clipVertical = true,
+                    .scrollbarY = ScrollArea::ScrollbarType::NORMAL,
+                    .innerContent = [&](const ScrollArea::InnerContentParameters&) {
+                        CLAY_AUTO_ID({.layout = {
+                            .sizing = {.width = CLAY_SIZING_GROW(0), .height = CLAY_SIZING_FIT(0)},
+                            .childGap = 6,
+                            .layoutDirection = CLAY_TOP_TO_BOTTOM
+                        }}) {
+                            drawTool->gui_toolbox(t);
+                        }
+                    }
+                });
             }
         });
     });

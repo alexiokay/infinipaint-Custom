@@ -106,7 +106,7 @@ class DrawingProgram {
 
         std::unique_ptr<DrawingProgramToolBase> drawTool;
     private:
-        bool toolPanelExpanded = false, toolPanelInitialized = false, toolPanelDragging = false;
+        bool toolPanelExpanded = false, toolPanelInitialized = false, toolPanelDragging = false, toolPanelDragMoved = false;
         InputManager::MouseDeviceType toolPanelDragDevice = InputManager::MouseDeviceType::MOUSE;
         uint32_t toolPanelDragPen = 0;
         SDL_FingerID toolPanelDragFinger = 0;

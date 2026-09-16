@@ -113,3 +113,117 @@ void ToolConfiguration::relative_width_gui(DrawingProgram& drawP, const char* la
         }
     });
 }
+
+void ToolConfiguration::init_default_presets_if_empty() {
+    if (!presets.empty()) return;
+    presets = {
+        BrushPreset{
+            .name = "Studio Pen",
+            .relativeWidth = 12.0f,
+            .color = Vector4f{1.0f, 1.0f, 1.0f, 1.0f},
+            .hasRoundCaps = true,
+            .engine = BrushPressure::Engine::Samples,
+            .pressureResponse = BrushPressure::Response::Time,
+            .rendering = BrushPressure::Rendering::Polyline,
+            .pressureTimeMs = 40.0,
+            .localCorrection = true,
+            .smoothingFactor = 0.707f,
+            .minimumSize = 0.1f,
+            .pressureAffectsWidth = true
+        },
+        BrushPreset{
+            .name = "Fine Liner",
+            .relativeWidth = 4.0f,
+            .color = Vector4f{1.0f, 1.0f, 1.0f, 1.0f},
+            .hasRoundCaps = true,
+            .engine = BrushPressure::Engine::Samples,
+            .pressureResponse = BrushPressure::Response::Preserve,
+            .rendering = BrushPressure::Rendering::Polyline,
+            .pressureTimeMs = 30.0,
+            .localCorrection = true,
+            .smoothingFactor = 0.85f,
+            .minimumSize = 0.25f,
+            .pressureAffectsWidth = true
+        },
+        BrushPreset{
+            .name = "Soft Pencil",
+            .relativeWidth = 8.0f,
+            .color = Vector4f{0.75f, 0.75f, 0.8f, 0.85f},
+            .hasRoundCaps = true,
+            .engine = BrushPressure::Engine::Samples,
+            .pressureResponse = BrushPressure::Response::Time,
+            .rendering = BrushPressure::Rendering::BoundedCurves,
+            .pressureTimeMs = 60.0,
+            .localCorrection = false,
+            .smoothingFactor = 0.5f,
+            .minimumSize = 0.05f,
+            .pressureAffectsWidth = true
+        },
+        BrushPreset{
+            .name = "Marker",
+            .relativeWidth = 28.0f,
+            .color = Vector4f{0.95f, 0.85f, 0.35f, 0.9f},
+            .hasRoundCaps = false,
+            .engine = BrushPressure::Engine::Compatibility,
+            .pressureResponse = BrushPressure::Response::Original,
+            .rendering = BrushPressure::Rendering::Polyline,
+            .pressureTimeMs = 40.0,
+            .localCorrection = false,
+            .smoothingFactor = 0.707f,
+            .minimumSize = 0.5f,
+            .pressureAffectsWidth = false
+        }
+    };
+    selectedPreset = 0;
+}
+
+void ToolConfiguration::apply_brush_preset(DrawingProgram& drawP, size_t index) {
+    if (index >= presets.size()) return;
+    selectedPreset = static_cast<int>(index);
+    const auto& p = presets[index];
+    brush.relativeWidth = p.relativeWidth;
+    globalConf.foregroundColor = p.color;
+    brush.hasRoundCaps = p.hasRoundCaps;
+    brush.engine = p.engine;
+    brush.pressureResponse = p.pressureResponse;
+    brush.rendering = p.rendering;
+    brush.pressureTimeMs = p.pressureTimeMs;
+    drawP.world.main.conf.tabletOptions.penFilter.enabled = p.localCorrection;
+    drawP.world.main.conf.tabletOptions.brushPressureSmoothingFactor = p.smoothingFactor;
+    drawP.world.main.conf.tabletOptions.brushMinimumSize = p.minimumSize;
+    drawP.world.main.conf.tabletOptions.pressureAffectsBrushWidth = p.pressureAffectsWidth;
+    drawP.world.main.g.gui.set_to_layout();
+}
+
+void ToolConfiguration::save_current_brush_preset(DrawingProgram& drawP, const std::string& customName) {
+    init_default_presets_if_empty();
+    std::string name = customName;
+    if (name.empty()) {
+        name = "Setup " + std::to_string(presets.size() + 1);
+    }
+    BrushPreset p{
+        .name = name,
+        .relativeWidth = brush.relativeWidth,
+        .color = globalConf.foregroundColor,
+        .hasRoundCaps = brush.hasRoundCaps,
+        .engine = brush.engine,
+        .pressureResponse = brush.pressureResponse,
+        .rendering = brush.rendering,
+        .pressureTimeMs = brush.pressureTimeMs,
+        .localCorrection = drawP.world.main.conf.tabletOptions.penFilter.enabled,
+        .smoothingFactor = drawP.world.main.conf.tabletOptions.brushPressureSmoothingFactor,
+        .minimumSize = drawP.world.main.conf.tabletOptions.brushMinimumSize,
+        .pressureAffectsWidth = drawP.world.main.conf.tabletOptions.pressureAffectsBrushWidth
+    };
+    presets.push_back(p);
+    selectedPreset = static_cast<int>(presets.size() - 1);
+    drawP.world.main.g.gui.set_to_layout();
+}
+
+void ToolConfiguration::delete_brush_preset(size_t index) {
+    if (index >= presets.size() || presets.size() <= 1) return;
+    presets.erase(presets.begin() + index);
+    if (selectedPreset >= static_cast<int>(presets.size()))
+        selectedPreset = static_cast<int>(presets.size() - 1);
+}
+
