@@ -26,10 +26,11 @@ namespace GUIStuff { namespace ElementHelpers {
 
 void text_button(GUIManager& gui, const char* id, std::string_view text, const TextButtonOptions& options) {
     SelectableButton::Data d = selectable_button_options_to_data(options);
-    d.innerContent = [&gui, text, centered = options.centered] (const SelectableButton::InnerContentCallbackParameters&) {
+    d.innerContent = [&gui, text, centered = options.centered, padX = options.padX, padY = options.padY] (const SelectableButton::InnerContentCallbackParameters&) {
         CLAY_AUTO_ID({
             .layout = {
                 .sizing = {.width = CLAY_SIZING_GROW(0), .height = CLAY_SIZING_GROW(0) },
+                .padding = { .left = padX, .right = padX, .top = padY, .bottom = padY },
                 .childAlignment = {.x = centered ? CLAY_ALIGN_X_CENTER : CLAY_ALIGN_X_LEFT, .y = CLAY_ALIGN_Y_CENTER}
             }
         }) {
@@ -49,7 +50,7 @@ void text_button(GUIManager& gui, const char* id, std::string_view text, const T
 void text_button_with_icon(GUIManager& gui, const char* id, const std::string& svgPath, std::string_view text, const TextButtonOptions& options) {
     gui.new_id(id, [&] {
         SelectableButton::Data d = selectable_button_options_to_data(options);
-        d.innerContent = [&gui, svgPath, text, centered = options.centered] (const SelectableButton::InnerContentCallbackParameters&) {
+        d.innerContent = [&gui, svgPath, text, centered = options.centered, padX = options.padX, padY = options.padY] (const SelectableButton::InnerContentCallbackParameters&) {
             gui.element<LayoutElement>("layoutelem", [&] (LayoutElement* l, const Clay_ElementId& lId) {
                 CLAY(lId, {
                     .layout = {
@@ -72,6 +73,7 @@ void text_button_with_icon(GUIManager& gui, const char* id, const std::string& s
                     CLAY_AUTO_ID({
                         .layout = {
                             .sizing = {.width = CLAY_SIZING_GROW(0), .height = CLAY_SIZING_GROW(0) },
+                            .padding = { .left = 0, .right = padX, .top = padY, .bottom = padY },
                             .childAlignment = {.x = centered ? CLAY_ALIGN_X_CENTER : CLAY_ALIGN_X_LEFT, .y = CLAY_ALIGN_Y_CENTER}
                         }
                     }) {
@@ -93,8 +95,16 @@ void text_button_with_icon(GUIManager& gui, const char* id, const std::string& s
 
 void text_button_sized(GUIManager& gui, const char* id, std::string_view text, Clay_SizingAxis x, Clay_SizingAxis y, const TextButtonOptions& options) {
     SelectableButton::Data d = selectable_button_options_to_data(options);
-    d.innerContent = [&gui, text] (const SelectableButton::InnerContentCallbackParameters&) {
-        text_label(gui, text);
+    d.innerContent = [&gui, text, centered = options.centered, padX = options.padX, padY = options.padY] (const SelectableButton::InnerContentCallbackParameters&) {
+        CLAY_AUTO_ID({
+            .layout = {
+                .sizing = {.width = CLAY_SIZING_GROW(0), .height = CLAY_SIZING_GROW(0) },
+                .padding = { .left = padX, .right = padX, .top = padY, .bottom = padY },
+                .childAlignment = {.x = centered ? CLAY_ALIGN_X_CENTER : CLAY_ALIGN_X_LEFT, .y = CLAY_ALIGN_Y_CENTER}
+            }
+        }) {
+            text_label(gui, text);
+        }
     };
     CLAY_AUTO_ID({
         .layout = {

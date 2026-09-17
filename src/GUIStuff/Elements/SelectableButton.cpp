@@ -49,7 +49,7 @@ void SelectableButton::layout(const Clay_ElementId& id, const Data& d) {
     else
         borderColor = SkColor4f{0.0f, 0.0f, 0.0f, 0.0f};
 
-    if(d.isSelected)
+    if(d.isSelected && d.drawType != DrawType::TRANSPARENT_BORDER && d.drawType != DrawType::TRANSPARENT_ALL)
         backgroundColorHighlight = color_mul_alpha(io.theme->fillColor1, 0.4f);
     else if(isHovering || isHeld)
         backgroundColorHighlight = color_mul_alpha(io.theme->fillColor1, 0.2f);
@@ -79,7 +79,7 @@ void SelectableButton::layout(const Clay_ElementId& id, const Data& d) {
     }) {
         CLAY_AUTO_ID({.layout = { 
                 .sizing = {.width = CLAY_SIZING_GROW(0), .height = CLAY_SIZING_GROW(0)},
-                .padding = (d.drawType == DrawType::TRANSPARENT_BORDER) ? CLAY_PADDING_ALL(0) : CLAY_PADDING_ALL(4),
+                .padding = CLAY_PADDING_ALL(2),
                 .childAlignment = { .x = CLAY_ALIGN_X_CENTER, .y = CLAY_ALIGN_Y_CENTER },
             },
             .backgroundColor = convert_vec4<Clay_Color>(backgroundColorHighlight),

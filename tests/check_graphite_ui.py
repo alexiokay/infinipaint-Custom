@@ -136,6 +136,21 @@ class GraphiteUI(unittest.TestCase):
         self.assertIn("const bool isSelected =", toolbar)
         self.assertIn(".isSelected=isSelected", toolbar)
 
+    def test_studio_flyout_padding_and_button_proportions(self):
+        panel = source("src/DrawingProgram/DrawingProgram.cpp")
+        self.assertIn(".padding = CLAY_PADDING_ALL(io.theme->padding1)", panel)
+        self.assertIn('text_button_sized(gui, "panel close", "✕"', panel)
+        self.assertIn("closeBtnSize", panel)
+
+        btn_h = source("src/GUIStuff/ElementHelpers/ButtonHelpers.hpp")
+        self.assertIn("uint16_t padX = 8;", btn_h)
+
+        btn_cpp = source("src/GUIStuff/ElementHelpers/ButtonHelpers.cpp")
+        self.assertIn(".padding = { .left = padX, .right = padX, .top = padY, .bottom = padY }", btn_cpp)
+
+        sel_btn = source("src/GUIStuff/Elements/SelectableButton.cpp")
+        self.assertIn("d.drawType != DrawType::TRANSPARENT_BORDER && d.drawType != DrawType::TRANSPARENT_ALL", sel_btn)
+
 
 if __name__ == "__main__":
     unittest.main()

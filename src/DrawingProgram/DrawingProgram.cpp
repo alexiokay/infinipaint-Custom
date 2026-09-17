@@ -728,8 +728,8 @@ void DrawingProgram::tool_options_gui(Toolbar& t) {
             CLAY(id, {
                 .layout = {
                     .sizing = {.width = CLAY_SIZING_FIXED(width), .height = CLAY_SIZING_FIXED(height)},
-                    .padding = CLAY_PADDING_ALL(8),
-                    .childGap = 6,
+                    .padding = CLAY_PADDING_ALL(io.theme->padding1),
+                    .childGap = io.theme->childGap1,
                     .layoutDirection = CLAY_TOP_TO_BOTTOM
                 },
                 .backgroundColor = convert_vec4<Clay_Color>(color_mul_alpha(io.theme->backColor1, 0.97f)),
@@ -761,6 +761,7 @@ void DrawingProgram::tool_options_gui(Toolbar& t) {
                     text_button(gui, "panel pin", prefs.pinned ? "Pinned" : "Pin", {
                         .drawType = prefs.pinned ? SelectableButton::DrawType::FILLED : SelectableButton::DrawType::TRANSPARENT_BORDER,
                         .isSelected = prefs.pinned,
+                        .padX = 8,
                         .onClick = [this] {
                             auto& p = world.main.toolConfig.toolPanel;
                             p.pinned = !p.pinned;
@@ -771,6 +772,7 @@ void DrawingProgram::tool_options_gui(Toolbar& t) {
 
                     text_button(gui, "panel reset", "Reset", {
                         .drawType = SelectableButton::DrawType::TRANSPARENT_BORDER,
+                        .padX = 8,
                         .onClick = [this] {
                             auto& p = world.main.toolConfig.toolPanel;
                             p.x = 1.0f;
@@ -780,8 +782,11 @@ void DrawingProgram::tool_options_gui(Toolbar& t) {
                         }
                     });
 
-                    text_button(gui, "panel close", "✕", {
+                    const float closeBtnSize = static_cast<float>(io.theme->controlHeight) * 0.85f;
+                    text_button_sized(gui, "panel close", "✕", CLAY_SIZING_FIXED(closeBtnSize), CLAY_SIZING_FIXED(closeBtnSize), {
                         .drawType = SelectableButton::DrawType::TRANSPARENT_BORDER,
+                        .centered = true,
+                        .padX = 0,
                         .onClick = [this] {
                             toolPanelExpanded = false;
                             world.main.g.gui.set_to_layout();
@@ -801,15 +806,15 @@ void DrawingProgram::tool_options_gui(Toolbar& t) {
                     const float rowH = static_cast<float>(io.theme->controlHeight) * 0.9f;
                     CLAY_AUTO_ID({.layout = {
                         .sizing = {.width = CLAY_SIZING_GROW(0), .height = CLAY_SIZING_FIT(0)},
-                        .padding = CLAY_PADDING_ALL(2),
                         .childGap = 4,
                         .layoutDirection = CLAY_TOP_TO_BOTTOM
                     }}) {
-                        left_to_right_layout(gui, CLAY_SIZING_GROW(0), CLAY_SIZING_FIXED(22.0f), [&] {
+                        left_to_right_layout(gui, CLAY_SIZING_GROW(0), CLAY_SIZING_FIT(0), [&] {
                             text_label(gui, "BRUSH SETUPS");
                             CLAY_AUTO_ID({.layout = {.sizing = {.width = CLAY_SIZING_GROW(0), .height = CLAY_SIZING_GROW(0)}}}) {}
                             text_button(gui, "preset save", "+ Save Current", {
                                 .drawType = SelectableButton::DrawType::TRANSPARENT_BORDER,
+                                .padX = 8,
                                 .onClick = [this] {
                                     world.main.toolConfig.save_current_brush_preset(*this);
                                 }
@@ -824,6 +829,7 @@ void DrawingProgram::tool_options_gui(Toolbar& t) {
                                         .drawType = isSel1 ? SelectableButton::DrawType::FILLED : SelectableButton::DrawType::TRANSPARENT_BORDER,
                                         .isSelected = isSel1,
                                         .wide = true,
+                                        .padX = 8,
                                         .onClick = [this, i] {
                                             world.main.toolConfig.apply_brush_preset(*this, i);
                                         }
@@ -834,6 +840,7 @@ void DrawingProgram::tool_options_gui(Toolbar& t) {
                                             .drawType = isSel2 ? SelectableButton::DrawType::FILLED : SelectableButton::DrawType::TRANSPARENT_BORDER,
                                             .isSelected = isSel2,
                                             .wide = true,
+                                            .padX = 8,
                                             .onClick = [this, i] {
                                                 world.main.toolConfig.apply_brush_preset(*this, i + 1);
                                             }

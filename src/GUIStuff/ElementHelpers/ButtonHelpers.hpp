@@ -43,6 +43,8 @@ struct TextButtonOptions {
     bool wide = false;
     bool growHeight = false;
     bool centered = true;
+    uint16_t padX = 8;
+    uint16_t padY = 0;
 
     std::function<void()> onClick;
     std::function<void(SelectableButton*)> onClickButton;
@@ -78,10 +80,10 @@ template <typename T> SelectableButton* color_button(GUIManager& gui, const char
     SelectableButton* toRet;
     gui.new_id(id, [&] {
         SelectableButton::Data d = selectable_button_options_to_data(options);
-        d.innerContent = [&] (const SelectableButton::InnerContentCallbackParameters& p) {
+        d.innerContent = [&] (const SelectableButton::InnerContentCallbackParameters&) {
             CLAY_AUTO_ID({.layout = {
                 .sizing = {.width = CLAY_SIZING_GROW(0), .height = CLAY_SIZING_GROW(0)},
-                .padding = p.isSelected ? CLAY_PADDING_ALL(2) : CLAY_PADDING_ALL(1),
+                .padding = CLAY_PADDING_ALL(2),
                 .childAlignment = {.x = CLAY_ALIGN_X_CENTER, .y = CLAY_ALIGN_Y_CENTER}
             }}) {
                 gui.element<ColorRectangleDisplay>("color display", [val, hasAlpha = options.hasAlpha] {
