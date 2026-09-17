@@ -44,6 +44,10 @@
 #include "../GUIStuff/ElementHelpers/RadioButtonHelpers.hpp"
 #include "../GUIStuff/ElementHelpers/LayoutHelpers.hpp"
 #include "../GUIStuff/ElementHelpers/ButtonHelpers.hpp"
+#include "../WorldScreenshot.hpp"
+#include "../Toolbar.hpp"
+#include "../FileHelpers.hpp"
+#include "Tools/ScreenshotTool.hpp"
 
 DrawingProgramSelection::DrawingProgramSelection(DrawingProgram& initDrawP):
     drawP(initDrawP)
@@ -74,6 +78,20 @@ void DrawingProgramSelection::selection_gui(Toolbar& t) {
                     }
                 });
                 text_label(gui, "Stroke Color");
+            });
+            left_to_right_line_layout(gui, [&]() {
+                text_button(gui, "export selection btn", "Export Image", {
+                    .padX = 8,
+                    .onClick = [&] {
+                        export_selection_screenshot();
+                    }
+                });
+                text_button(gui, "crop to screenshot btn", "Crop Frame", {
+                    .padX = 8,
+                    .onClick = [&] {
+                        crop_to_screenshot_tool();
+                    }
+                });
             });
         }
     });
@@ -176,6 +194,12 @@ void DrawingProgramSelection::phone_bottom_toolbar_gui(PhoneDrawingProgramScreen
             .drawType = SelectableButton::DrawType::TRANSPARENT_ALL,
             .onClick = [&] {
                 push_selection_to_back();
+            }
+        });
+        svg_icon_button(gui, "Export selection screenshot", "data/icons/camera.svg", {
+            .drawType = SelectableButton::DrawType::TRANSPARENT_ALL,
+            .onClick = [&] {
+                export_selection_screenshot();
             }
         });
     });
@@ -764,6 +788,73 @@ void DrawingProgramSelection::selection_to_clipboard() {
         clipboard.inverseScale = drawP.world.drawData.cam.c.inverseScale;
         clipboard.resources = drawP.world.rMan.copy_resource_set_to_map(resourceSet);
     }
+}
+
+void DrawingProgramSelection::crop_to_screenshot_tool() {
+    if(!is_something_selected()) return;
+
+    const auto& cam = drawP.world.drawData.cam.c;
+    Vector2f p1 = cam.to_space(initialSelectionAABB.min);
+    Vector2f p2 = cam.to_space(initialSelectionAABB.max);
+    float minX = std::min(p1.x(), p2.x());
+    float maxX = std::max(p1.x(), p2.x());
+    float minY = std::min(p1.y(), p2.y());
+    float maxY = std::max(p1.y(), p2.y());
+
+    drawP.switch_to_tool(DrawingProgramToolType::SCREENSHOT);
+    if(drawP.drawTool->get_type() == DrawingProgramToolType::SCREENSHOT) {
+        ScreenshotTool* st = static_cast<ScreenshotTool*>(drawP.drawTool.get());
+        st->set_crop_selection(cam, minX, minY, maxX, maxY);
+        drawP.world.main.g.gui.set_to_layout();
+    }
+}
+
+void DrawingProgramSelection::export_selection_screenshot() {
+    if(!is_something_selected()) return;
+
+    const auto& cam = drawP.world.drawData.cam.c;
+    Vector2f p1 = cam.to_space(initialSelectionAABB.min);
+    Vector2f p2 = cam.to_space(initialSelectionAABB.max);
+    float minX = std::min(p1.x(), p2.x());
+    float maxX = std::max(p1.x(), p2.x());
+    float minY = std::min(p1.y(), p2.y());
+    float maxY = std::max(p1.y(), p2.y());
+
+    float padX = std::max(4.0f, (maxX - minX) * 0.05f);
+    float padY = std::max(4.0f, (maxY - minY) * 0.05f);
+    minX -= padX; maxX += padX;
+    minY -= padY; maxY += padY;
+
+    float width = maxX - minX;
+    float height = maxY - minY;
+    if(width <= 0.0f || height <= 0.0f) return;
+
+    int pxWidth = static_cast<int>(std::clamp(width, 32.0f, 8192.0f));
+    int pxHeight = static_cast<int>(std::clamp(height, 32.0f, 8192.0f));
+
+    auto screenshotType = drawP.world.main.toolConfig.screenshot.selectedType;
+    Screen::ExtensionFilter extFilter;
+    switch(screenshotType) {
+        case WorldScreenshotInfo::ScreenshotType::JPG: extFilter = {"JPEG", "jpg;jpeg"}; break;
+        case WorldScreenshotInfo::ScreenshotType::PNG: extFilter = {"PNG", "png"}; break;
+        case WorldScreenshotInfo::ScreenshotType::WEBP: extFilter = {"WEBP", "webp"}; break;
+        case WorldScreenshotInfo::ScreenshotType::SVG: extFilter = {"SVG", "svg"}; break;
+    }
+
+    drawP.world.main.tb.open_file_selector("Export Selection", {extFilter}, [this, minX, maxX, minY, maxY, pxWidth, pxHeight, screenshotType, extFilter](const std::filesystem::path& p, const auto&) {
+        auto w = drawP.world.main.world;
+        if(!w) return;
+        std::filesystem::path finalPath = drawP.world.main.conf.forceExtensionOnPath ? force_extension_on_path(p, extFilter.extensions) : p;
+        world_take_screenshot(w, {
+            .filePath = finalPath,
+            .type = screenshotType,
+            .imageSizePixels = Vector2i{pxWidth, pxHeight},
+            .cameraCoords = drawP.world.drawData.cam.c,
+            .imageBounds = {{minX, minY}, {maxX, maxY}},
+            .transparentBackground = true,
+            .displayGrid = false
+        });
+    }, "selection_export", true);
 }
 
 void DrawingProgramSelection::paste_clipboard(Vector2f pasteScreenPos) {

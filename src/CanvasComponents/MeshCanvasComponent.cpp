@@ -39,6 +39,50 @@
 #include <CDT/include/CDT.h>
 #include <clipper2/clipper.h>
 #include <Helpers/Logger.hpp>
+#include <include/effects/SkRuntimeEffect.h>
+
+namespace {
+static const char* grainSkSl = R"(
+    uniform float4 strokeColor;
+    uniform float grainIntensity;
+    uniform float grainScale;
+
+    float hash21(float2 p) {
+        p = fract(p * float2(234.34, 435.345));
+        p += dot(p, p + 34.23);
+        return fract(p.x * p.y);
+    }
+
+    half4 main(float2 fragCoord) {
+        float n1 = hash21(fragCoord * grainScale);
+        float n2 = hash21(fragCoord * grainScale * 0.5 + float2(17.1, 31.7));
+        float tooth = n1 * 0.7 + n2 * 0.3;
+        float factor = mix(1.0, tooth * 1.5, grainIntensity);
+        factor = clamp(factor, 0.0, 1.0);
+        return half4(strokeColor.rgb, strokeColor.a * factor);
+    }
+)";
+
+sk_sp<SkShader> get_grain_shader(const SkColor4f& color, float grainIntensity, float grainScale) {
+    if (grainIntensity <= 0.005f) {
+        return nullptr;
+    }
+    static sk_sp<SkRuntimeEffect> grainEffect;
+    if(!grainEffect) {
+        auto [effect, err] = SkRuntimeEffect::MakeForShader(SkString(grainSkSl));
+        if(!err.isEmpty()) {
+            std::cout << "[MeshCanvasComponent] Grain shader compile error: " << err.c_str() << std::endl;
+            return nullptr;
+        }
+        grainEffect = effect;
+    }
+    SkRuntimeShaderBuilder builder(grainEffect);
+    builder.uniform("strokeColor") = SkV4{color.fR, color.fG, color.fB, color.fA};
+    builder.uniform("grainIntensity") = grainIntensity;
+    builder.uniform("grainScale") = grainScale;
+    return builder.makeShader();
+}
+}
 
 template <typename Archive> void skpath_write(const SkPath& p, Archive& a) {
     std::vector<std::vector<SkPoint>> contours;
@@ -142,8 +186,17 @@ std::optional<Vector4f> MeshCanvasComponent::get_stroke_color() const {
 
 void MeshCanvasComponent::draw(SkCanvas* canvas, const DrawData& drawData, const std::shared_ptr<void>& predrawData) const {
     SkPaint paint;
-    paint.setColor4f(SkColor4f{d.color.x(), d.color.y(), d.color.z(), d.color.w()});
+    SkColor4f c{d.color.x(), d.color.y(), d.color.z(), d.color.w()};
+    paint.setColor4f(c);
     paint.setAntiAlias(drawData.skiaAA);
+
+    if (drawData.main && !drawData.isSVGRender && drawData.main->toolConfig.brush.grainIntensity > 0.005f) {
+        float grain = drawData.main->toolConfig.brush.grainIntensity;
+        float scale = drawData.main->toolConfig.brush.grainScale;
+        auto shader = get_grain_shader(c, grain, scale);
+        if (shader) paint.setShader(shader);
+    }
+
     canvas->drawPath(d.meshPath, paint);
 }
 
@@ -277,8 +330,17 @@ bool MeshCanvasComponent::accurate_draw(SkCanvas* canvas, const DrawData& drawDa
         auto pathToDraw = std::static_pointer_cast<SkPath>(predrawData);
         if(pathToDraw) {
             SkPaint paint;
-            paint.setColor4f(SkColor4f{d.color.x(), d.color.y(), d.color.z(), d.color.w()});
+            SkColor4f c{d.color.x(), d.color.y(), d.color.z(), d.color.w()};
+            paint.setColor4f(c);
             paint.setAntiAlias(drawData.skiaAA);
+
+            if (drawData.main && !drawData.isSVGRender && drawData.main->toolConfig.brush.grainIntensity > 0.005f) {
+                float grain = drawData.main->toolConfig.brush.grainIntensity;
+                float scale = drawData.main->toolConfig.brush.grainScale;
+                auto shader = get_grain_shader(c, grain, scale);
+                if (shader) paint.setShader(shader);
+            }
+
             canvas->drawPath(*pathToDraw, paint);
         }
     }

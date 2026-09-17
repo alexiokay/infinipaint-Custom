@@ -379,39 +379,85 @@ void Toolbar::save_as_func() {
     #endif
 }
 
+void Toolbar::add_recent_color(const Vector3f& color) {
+    auto it = std::find_if(recentColors.begin(), recentColors.end(), [&](const Vector3f& c) {
+        return (c - color).norm() < 0.02f;
+    });
+    if (it != recentColors.end()) {
+        recentColors.erase(it);
+    }
+    recentColors.insert(recentColors.begin(), color);
+    if (recentColors.size() > 8) {
+        recentColors.pop_back();
+    }
+}
+
 void Toolbar::quick_colors() {
     using namespace GUIStuff;
     using namespace ElementHelpers;
-    auto& gui=main.g.gui;
+    auto& gui = main.g.gui;
     if (!main.world) return;
-    auto* selected=main.world->drawProg.get_foreground_color_ptr();
+    auto* selected = main.world->drawProg.get_foreground_color_ptr();
     if (!selected) return;
-    if (paletteData.selectedPalette<main.conf.palettes.size()) {
-        const auto& palette=main.conf.palettes[paletteData.selectedPalette].colors;
-        for (size_t i=0;i<std::min<size_t>(3,palette.size());++i) {
-            gui.new_id(static_cast<uint32_t>(i),[&,i] {
-                auto swatch=std::make_shared<Vector3f>(palette[i]);
-                const bool isSelected = (std::abs(selected->x() - palette[i].x()) < 0.02f &&
-                                         std::abs(selected->y() - palette[i].y()) < 0.02f &&
-                                         std::abs(selected->z() - palette[i].z()) < 0.02f);
-                color_button(gui,"quick swatch",swatch.get(),FixedSizeColorButtonOptions{
-                    .drawType=SelectableButton::DrawType::TRANSPARENT_BORDER,
-                    .isSelected=isSelected,
-                    .hasAlpha=false,
-                    .size=28,
-                    .onClick=[this,swatch] {
-                        if(auto* c=main.world->drawProg.get_foreground_color_ptr()) {
-                            c->x()=swatch->x(); c->y()=swatch->y(); c->z()=swatch->z();
-                            main.g.gui.set_to_layout();
-                        }
+
+    // Active color well (Option A: Clicking it opens the real precision Color Picker)
+    color_button(gui, "active studio color", selected, FixedSizeColorButtonOptions{
+        .drawType = SelectableButton::DrawType::FILLED,
+        .isSelected = colorLeft == selected,
+        .hasAlpha = true,
+        .size = 28,
+        .onClickButton = [this, selected](SelectableButton* b) {
+            color_selector_left(b, selected, {
+                .onChange = [this] {
+                    if (auto* c = main.world->drawProg.get_foreground_color_ptr()) {
+                        add_recent_color(Vector3f{c->x(), c->y(), c->z()});
                     }
-                });
+                    main.g.gui.set_to_layout();
+                }
             });
         }
+    });
+
+    if (recentColors.empty() && paletteData.selectedPalette < main.conf.palettes.size()) {
+        const auto& palette = main.conf.palettes[paletteData.selectedPalette].colors;
+        for (size_t i = 0; i < std::min<size_t>(4, palette.size()); ++i) {
+            recentColors.push_back(palette[i]);
+        }
     }
-    text_button(gui,"quick palette","More",{
-        .onClickButton=[this](SelectableButton* b) {
-            if(b->get_bb()) main.world->drawProg.set_right_click_popup_location(b->get_bb()->center());
+
+    for (size_t i = 0; i < std::min<size_t>(4, recentColors.size()); ++i) {
+        gui.new_id(static_cast<uint32_t>(i), [&, i] {
+            auto swatch = std::make_shared<Vector3f>(recentColors[i]);
+            const bool isSelected = (std::abs(selected->x() - recentColors[i].x()) < 0.02f &&
+                                     std::abs(selected->y() - recentColors[i].y()) < 0.02f &&
+                                     std::abs(selected->z() - recentColors[i].z()) < 0.02f);
+            color_button(gui, "quick swatch", swatch.get(), FixedSizeColorButtonOptions{
+                .drawType = SelectableButton::DrawType::TRANSPARENT_BORDER,
+                .isSelected=isSelected,
+                .hasAlpha = false,
+                .size = 28,
+                .onClick = [this, swatch] {
+                    if (auto* c = main.world->drawProg.get_foreground_color_ptr()) {
+                        c->x() = swatch->x(); c->y() = swatch->y(); c->z() = swatch->z();
+                        add_recent_color(*swatch);
+                        main.g.gui.set_to_layout();
+                    }
+                }
+            });
+        });
+    }
+
+    text_button(gui, "quick palette", "Picker", {
+        .padX = 8,
+        .onClickButton = [this, selected](SelectableButton* b) {
+            color_selector_left(b, selected, {
+                .onChange = [this] {
+                    if (auto* c = main.world->drawProg.get_foreground_color_ptr()) {
+                        add_recent_color(Vector3f{c->x(), c->y(), c->z()});
+                    }
+                    main.g.gui.set_to_layout();
+                }
+            });
         }
     });
 }
@@ -422,7 +468,7 @@ void Toolbar::paint_popup(Vector2f popupPos) {
 
     std::shared_ptr<double> newRotationAngle = std::make_shared<double>(main.world->drawData.cam.c.rotation);
 
-    gui.set_z_index(-1, [&] {
+    gui.set_z_index(gui.get_z_index() + 10, [&] {
         paint_circle_popup_menu(gui, "paint circle popup", popupPos, {
             .rotationAngle = newRotationAngle.get(),
             .selectedColor = main.world->drawProg.get_foreground_color_ptr(),

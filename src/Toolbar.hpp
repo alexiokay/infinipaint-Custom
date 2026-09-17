@@ -70,6 +70,8 @@ class Toolbar {
         void color_button_right(const char* id, Vector4f* color, const ColorSelectorButtonData& colorSelectorData = {});
 
         void quick_colors();
+        void add_recent_color(const Vector3f& color);
+        std::vector<Vector3f> recentColors;
         void paint_popup(Vector2f popupPos);
 
         void open_file_selector(const std::string& filePickerName, const std::vector<Screen::ExtensionFilter>& extensionFilters, Screen::OpenFileSelectorCallback postSelectionFunc, const std::string& fileName = "", bool isSaving = false);

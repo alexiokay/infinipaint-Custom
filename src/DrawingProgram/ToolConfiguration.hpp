@@ -90,6 +90,7 @@ class ToolConfiguration {
             float smoothingFactor = 0.707f;
             float minimumSize = 0.0f;
             bool pressureAffectsWidth = true;
+            float grainIntensity = 0.0f;
 
             friend void to_json(nlohmann::json& j, const BrushPreset& p) {
                 const char* mode = p.pressureResponse == BrushPressure::Response::Preserve ? "preserve" :
@@ -107,7 +108,8 @@ class ToolConfiguration {
                     {"localCorrection", p.localCorrection},
                     {"smoothingFactor", p.smoothingFactor},
                     {"minimumSize", p.minimumSize},
-                    {"pressureAffectsWidth", p.pressureAffectsWidth}
+                    {"pressureAffectsWidth", p.pressureAffectsWidth},
+                    {"grainIntensity", p.grainIntensity}
                 };
             }
 
@@ -135,6 +137,7 @@ class ToolConfiguration {
                 if (j.contains("smoothingFactor") && j["smoothingFactor"].is_number()) p.smoothingFactor = j["smoothingFactor"].get<float>();
                 if (j.contains("minimumSize") && j["minimumSize"].is_number()) p.minimumSize = j["minimumSize"].get<float>();
                 if (j.contains("pressureAffectsWidth") && j["pressureAffectsWidth"].is_boolean()) p.pressureAffectsWidth = j["pressureAffectsWidth"].get<bool>();
+                if (j.contains("grainIntensity") && j["grainIntensity"].is_number()) p.grainIntensity = j["grainIntensity"].get<float>();
             }
         };
 

@@ -50,6 +50,8 @@ class DrawingProgramSelection {
         void push_selection_to_back();
         void delete_all();
         void selection_to_clipboard();
+        void export_selection_screenshot();
+        void crop_to_screenshot_tool();
         CanvasComponentContainer::ObjInfo* get_front_object_colliding_with_in_editing_layer(const SkPath& cC);
         void input_key_callback_modify_selection(const InputManager::KeyCallbackArgs& key);
         void input_key_callback_display_selection(const InputManager::KeyCallbackArgs& key);

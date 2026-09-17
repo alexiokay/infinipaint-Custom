@@ -40,6 +40,7 @@ class ScreenshotTool : public DrawingProgramToolBase {
         virtual bool prevent_undo_or_redo() override;
         virtual void input_mouse_button_on_canvas_callback(const InputManager::MouseButtonCallbackArgs& button) override;
         virtual void input_mouse_motion_callback(const InputManager::MouseMotionCallbackArgs& motion) override;
+        void set_crop_selection(const CoordSpaceHelper& newCoords, float x1, float y1, float x2, float y2);
     private:
         void commit_rect();
         void take_screenshot(const std::filesystem::path& filePath, WorldScreenshotInfo::ScreenshotType screenshotType);

@@ -16,6 +16,8 @@ struct Config {
     Engine engine = Engine::Compatibility;
     Rendering rendering = Rendering::Polyline;
     double pressureTimeMs = 40;
+    float grainIntensity = 0.0f; // 0.0 = clean vector fill, up to 1.0 = heavy paper tooth/charcoal
+    float grainScale = 1.0f;     // paper tooth frequency/scale
     bool pipelineExplicit = true; // Runtime migration state; serialized by engine key.
     bool correctionIndependent = false; // Migrated once after both configs load.
     bool samplePath() const { return engine == Engine::Samples; }
@@ -35,6 +37,8 @@ struct Config {
             {"engine", c.engine == Engine::Compatibility ? "original" : "samples"},
             {"rendering", c.rendering == Rendering::Polyline ? "polyline" : "bounded"},
             {"pressureTimeMs", c.pressureTimeMs},
+            {"grainIntensity", c.grainIntensity},
+            {"grainScale", c.grainScale},
             // Older fork builds understand this key, but not peak mode.
             {"preservePenPressure", c.pressureResponse == Response::Preserve}};
     }
@@ -60,7 +64,14 @@ struct Config {
             if (j["pressureResponse"] == "preserve") c.pressureResponse = Response::Preserve;
             else if (j["pressureResponse"] == "peak") c.pressureResponse = Response::Peak;
             else if (j["pressureResponse"] == "time") c.pressureResponse = Response::Time;
-            // Unknown new mode safely falls back to Original, not a legacy key.
+        if (j.contains("grainIntensity") && j["grainIntensity"].is_number()) {
+            const float g = j["grainIntensity"].get<float>();
+            if (std::isfinite(g)) c.grainIntensity = std::clamp(g, 0.0f, 1.0f);
+        }
+        if (j.contains("grainScale") && j["grainScale"].is_number()) {
+            const float s = j["grainScale"].get<float>();
+            if (std::isfinite(s) && s > 0.0f) c.grainScale = std::clamp(s, 0.1f, 10.0f);
+        }
         } else if (j.contains("preservePenPressure") && j["preservePenPressure"].is_boolean() &&
                    j["preservePenPressure"].get<bool>()) c.pressureResponse = Response::Preserve;
     }

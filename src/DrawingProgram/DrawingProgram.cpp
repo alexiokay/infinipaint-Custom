@@ -512,6 +512,12 @@ void DrawingProgram::selection_action_menu(Vector2f popupPos) {
                 selection.selection_to_clipboard();
                 selection.delete_all();
             });
+            popup_menu_action_button("Export Selection as Image", "Export Selection as Image", [&] {
+                selection.export_selection_screenshot();
+            });
+            popup_menu_action_button("Crop to Screenshot Tool", "Crop to Screenshot Tool", [&] {
+                selection.crop_to_screenshot_tool();
+            });
             popup_menu_action_button("Delete", "Delete", [&] {
                 selection.delete_all();
             });
@@ -531,7 +537,7 @@ void DrawingProgram::right_click_action_menu(Vector2f popupPos, const std::funct
 
     GUIStuff::GUIManager& gui = world.main.g.gui;
 
-    gui.set_z_index(-1, [&] {
+    gui.set_z_index(gui.get_z_index() + 10, [&] {
         gui.element<PositionAdjustingPopupMenu>("Selection popup menu", popupPos, [&] {
             CLAY_AUTO_ID({
                 .layout = { 
@@ -803,10 +809,9 @@ void DrawingProgram::tool_options_gui(Toolbar& t) {
                     auto& toolConf = world.main.toolConfig;
                     toolConf.init_default_presets_if_empty();
 
-                    const float rowH = static_cast<float>(io.theme->controlHeight) * 0.9f;
                     CLAY_AUTO_ID({.layout = {
                         .sizing = {.width = CLAY_SIZING_GROW(0), .height = CLAY_SIZING_FIT(0)},
-                        .childGap = 4,
+                        .childGap = io.theme->childGap1,
                         .layoutDirection = CLAY_TOP_TO_BOTTOM
                     }}) {
                         left_to_right_layout(gui, CLAY_SIZING_GROW(0), CLAY_SIZING_FIT(0), [&] {
@@ -823,7 +828,7 @@ void DrawingProgram::tool_options_gui(Toolbar& t) {
 
                         for (size_t i = 0; i < toolConf.presets.size(); i += 2) {
                             gui.new_id(static_cast<uint32_t>(2000 + i), [&, i] {
-                                left_to_right_layout(gui, CLAY_SIZING_GROW(0), CLAY_SIZING_FIXED(rowH), [&] {
+                                left_to_right_layout(gui, CLAY_SIZING_GROW(0), CLAY_SIZING_FIT(0), [&] {
                                     const bool isSel1 = (toolConf.selectedPreset == static_cast<int>(i));
                                     text_button(gui, "preset1", toolConf.presets[i].name, {
                                         .drawType = isSel1 ? SelectableButton::DrawType::FILLED : SelectableButton::DrawType::TRANSPARENT_BORDER,

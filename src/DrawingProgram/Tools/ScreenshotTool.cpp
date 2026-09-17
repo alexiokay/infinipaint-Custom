@@ -400,3 +400,26 @@ void ScreenshotTool::draw(SkCanvas* canvas, const DrawData& drawData) {
         }
     }
 }
+
+void ScreenshotTool::set_crop_selection(const CoordSpaceHelper& newCoords, float x1, float y1, float x2, float y2) {
+    controls.coords = newCoords;
+    controls.rectX1 = x1;
+    controls.rectX2 = x2;
+    controls.rectY1 = y1;
+    controls.rectY2 = y2;
+    controls.selectionMode = ScreenshotControls::SelectionMode::SELECTION_EXISTS;
+    commit_rect();
+    float tempX1 = std::min(controls.rectX1, controls.rectX2);
+    float tempX2 = std::max(controls.rectX1, controls.rectX2);
+    float tempY1 = std::min(controls.rectY1, controls.rectY2);
+    float tempY2 = std::max(controls.rectY1, controls.rectY2);
+    auto& screenshotConfig = drawP.world.main.toolConfig.screenshot;
+    if(screenshotConfig.setDimensionIsX) {
+        controls.imageSize.x() = screenshotConfig.setDimensionSize;
+        controls.imageSize.y() = (tempX2 > tempX1) ? static_cast<int>(controls.imageSize.x() * (tempY2 - tempY1) / (tempX2 - tempX1)) : 1000;
+    }
+    else {
+        controls.imageSize.y() = screenshotConfig.setDimensionSize;
+        controls.imageSize.x() = (tempY2 > tempY1) ? static_cast<int>(controls.imageSize.y() * (tempX2 - tempX1) / (tempY2 - tempY1)) : 1000;
+    }
+}
