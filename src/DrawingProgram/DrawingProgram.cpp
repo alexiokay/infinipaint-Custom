@@ -800,10 +800,17 @@ void DrawingProgram::tool_options_gui(Toolbar& t) {
                     });
                 });
 
-                left_to_right_layout(gui, CLAY_SIZING_GROW(0), CLAY_SIZING_FIXED(static_cast<float>(io.theme->controlHeight)), [&] {
-                    text_label(gui, "Colors");
-                    t.quick_colors();
-                });
+                const bool toolHasColor = (type == DrawingProgramToolType::BRUSH ||
+                                           type == DrawingProgramToolType::LINE ||
+                                           type == DrawingProgramToolType::RECTANGLE ||
+                                           type == DrawingProgramToolType::ELLIPSE ||
+                                           type == DrawingProgramToolType::TEXTBOX);
+                if (toolHasColor) {
+                    left_to_right_layout(gui, CLAY_SIZING_GROW(0), CLAY_SIZING_FIXED(static_cast<float>(io.theme->controlHeight)), [&] {
+                        text_label(gui, "Colors");
+                        t.quick_colors();
+                    });
+                }
 
                 if (type == DrawingProgramToolType::BRUSH) {
                     auto& toolConf = world.main.toolConfig;
