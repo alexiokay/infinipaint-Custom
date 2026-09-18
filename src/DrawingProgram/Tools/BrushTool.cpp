@@ -176,11 +176,7 @@ void BrushTool::gui_inspector() {
                 checkbox_boolean_field(gui, "hasroundcaps", "Round Caps", &drawP.world.main.toolConfig.brush.hasRoundCaps);
                 checkbox_boolean_field(gui, "pressure width", "Pressure affects size", &main.conf.tabletOptions.pressureAffectsBrushWidth);
                 checkbox_boolean_field(gui, "local correction", "Smooth wobble (Stabilizer)", &main.conf.tabletOptions.penFilter.enabled);
-                number_slider(gui, "paper grain", "Paper Grain / Tooth", &drawP.world.main.toolConfig.brush.grainIntensity, {
-                    .min = 0.0f,
-                    .max = 1.0f,
-                    .step = 0.05f
-                });
+                slider_scalar_field(gui, "paper grain", "Paper Grain / Tooth", &drawP.world.main.toolConfig.brush.grainIntensity, 0.0f, 1.0f, {.decimalPrecision = 2});
             });
             text_button(gui, "advanced", advancedSettingsOpen ? "Less" : "Advanced", {
                 .drawType = SelectableButton::DrawType::TRANSPARENT_BORDER,

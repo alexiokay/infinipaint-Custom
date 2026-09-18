@@ -841,7 +841,10 @@ void DrawingProgramSelection::export_selection_screenshot() {
         case WorldScreenshotInfo::ScreenshotType::SVG: extFilter = {"SVG", "svg"}; break;
     }
 
-    drawP.world.main.tb.open_file_selector("Export Selection", {extFilter}, [this, minX, maxX, minY, maxY, pxWidth, pxHeight, screenshotType, extFilter](const std::filesystem::path& p, const auto&) {
+    Screen* scr = drawP.world.main.get_screen();
+    if(!scr) return;
+
+    scr->open_file_selector("Export Selection", {extFilter}, [this, minX, maxX, minY, maxY, pxWidth, pxHeight, screenshotType, extFilter](const std::filesystem::path& p, const auto&) {
         auto w = drawP.world.main.world;
         if(!w) return;
         std::filesystem::path finalPath = drawP.world.main.conf.forceExtensionOnPath ? force_extension_on_path(p, extFilter.extensions) : p;

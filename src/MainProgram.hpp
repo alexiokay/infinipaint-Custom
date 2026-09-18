@@ -145,6 +145,7 @@ class MainProgram {
         
         void set_first_screen(std::unique_ptr<Screen> firstScreen);
         void set_screen(std::function<std::unique_ptr<Screen>(std::unique_ptr<Screen>)> screenFunc);
+        Screen* get_screen() const { return screen.get(); }
 
         void refresh_draw_surfaces();
 

@@ -28,6 +28,7 @@
 #include "Eigen/Core"
 #include "Helpers/MathExtras.hpp"
 #include "../TimePoint.hpp"
+#include "../MainProgram.hpp"
 #include <include/core/SkVertices.h>
 #include <include/pathops/SkPathOps.h>
 #include <memory>
