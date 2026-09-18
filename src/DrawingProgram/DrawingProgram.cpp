@@ -71,6 +71,7 @@ DrawingProgram::DrawingProgram(World& initWorld):
     selection(*this)
 {
     drawTool = DrawingProgramToolBase::allocate_tool_type(*this, DrawingProgramToolType::BRUSH);
+    world.main.toolConfig.init_default_presets_if_empty();
 }
 
 void DrawingProgram::on_tab_out() {

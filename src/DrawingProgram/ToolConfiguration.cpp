@@ -179,6 +179,8 @@ void ToolConfiguration::init_default_presets_if_empty() {
         }
     };
     selectedPreset = 0;
+    brush.engine = BrushPressure::Engine::Samples;
+    brush.pressureResponse = BrushPressure::Response::Time;
 }
 
 void ToolConfiguration::apply_brush_preset(DrawingProgram& drawP, size_t index) {
