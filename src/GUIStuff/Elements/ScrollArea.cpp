@@ -354,7 +354,7 @@ void ScrollArea::clamp_scroll() {
 }
 
 void ScrollArea::update() {
-    if((scrollAreaMotion.x() != 0.0f || scrollAreaMotion.y() != 0.0f) && !scrollAreaHeld) {
+    if((scrollAreaMotion.x() != 0.0f || scrollAreaMotion.y() != 0.0f) && !scrollAreaHeld && !penScrollHeld) {
         Vector2f oldScrollOffset = scrollOffset;
         scrollOffset.x() += scrollAreaMotion.x();
         scrollOffset.y() += scrollAreaMotion.y();
@@ -369,7 +369,7 @@ void ScrollArea::update() {
         else
             scrollAreaMotion = {0.0f, 0.0f};
     }
-    else if(scrollAreaHeld)
+    else if(scrollAreaHeld || penScrollHeld)
         scrollAreaMotionMax *= std::pow(SCROLL_MAX_DAMPING, gui.io.deltaTime);
 }
 
@@ -393,13 +393,59 @@ void ScrollArea::input_mouse_wheel_callback(const InputManager::MouseWheelCallba
 }
 
 void ScrollArea::input_mouse_button_callback(const InputManager::MouseButtonCallbackArgs& button) {
-    if(button.deviceType != InputManager::MouseDeviceType::TOUCH)
+    if(button.deviceType == InputManager::MouseDeviceType::PEN) {
+        if(button.button == InputManager::MouseButton::LEFT) {
+            if(button.down) {
+                if(mouseHovering && (!xScrollbar.scrollbar || !xScrollbar.scrollbar->mouseHovering) && (!yScrollbar.scrollbar || !yScrollbar.scrollbar->mouseHovering)) {
+                    penScrollHeld = true;
+                    penScrollMoved = false;
+                    penScrollStartPos = button.pos;
+                    scrollAreaMotionMax = scrollAreaMotion = {0.0f, 0.0f};
+                }
+            } else {
+                bool oldPenScrollHeld = penScrollHeld;
+                penScrollHeld = false;
+                if(oldPenScrollHeld && penScrollMoved) {
+                    scrollAreaMotion = scrollAreaMotionMax;
+                    if(std::fabs(scrollAreaMotion.x()) < SCROLL_MINIMUM_MOTION_TO_START_MOVE)
+                        scrollAreaMotion.x() = 0.0f;
+                    if(std::fabs(scrollAreaMotion.y()) < SCROLL_MINIMUM_MOTION_TO_START_MOVE)
+                        scrollAreaMotion.y() = 0.0f;
+                }
+                penScrollMoved = false;
+            }
+        }
+    } else if(button.deviceType != InputManager::MouseDeviceType::TOUCH) {
         scrollAreaMotion = scrollAreaMotionMax = {0.0f, 0.0f};
+    }
 }
 
 void ScrollArea::input_mouse_motion_callback(const InputManager::MouseMotionCallbackArgs& motion) {
-    if(motion.deviceType != InputManager::MouseDeviceType::TOUCH)
+    if(motion.deviceType == InputManager::MouseDeviceType::PEN) {
+        if(penScrollHeld) {
+            if(!penScrollMoved) {
+                if((motion.pos - penScrollStartPos).norm() > 8.0f) {
+                    penScrollMoved = true;
+                }
+            }
+            if(penScrollMoved) {
+                scrollAreaMotion = {opts.scrollHorizontal ? motion.move.x() : 0.0f, opts.scrollVertical ? motion.move.y() : 0.0f};
+                if(std::fabs(scrollAreaMotion.x()) > std::fabs(scrollAreaMotionMax.x()))
+                    scrollAreaMotionMax.x() = scrollAreaMotion.x();
+                if(std::fabs(scrollAreaMotion.y()) > std::fabs(scrollAreaMotionMax.y()))
+                    scrollAreaMotionMax.y() = scrollAreaMotion.y();
+
+                Vector2f oldScrollOffset = scrollOffset;
+                scrollOffset.x() += scrollAreaMotion.x();
+                scrollOffset.y() += scrollAreaMotion.y();
+                clamp_scroll();
+                if(oldScrollOffset != scrollOffset)
+                    gui.set_to_layout();
+            }
+        }
+    } else if(motion.deviceType != InputManager::MouseDeviceType::TOUCH) {
         scrollAreaMotion = scrollAreaMotionMax = {0.0f, 0.0f};
+    }
 }
 
 void ScrollArea::input_finger_touch_callback(const InputManager::FingerTouchCallbackArgs& touch) {

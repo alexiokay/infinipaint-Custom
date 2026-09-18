@@ -58,12 +58,42 @@ bool RadioButton::is_hovering_animation() {
 }
 
 void RadioButton::input_mouse_button_callback(const InputManager::MouseButtonCallbackArgs& button) {
-    if(mouseHovering && button.button == InputManager::MouseButton::LEFT && button.down) {
-        gui.set_post_callback_func([&] { if(onClick) onClick(); });
-        isHeld = true;
+    if(button.deviceType == InputManager::MouseDeviceType::PEN) {
+        if(button.button == InputManager::MouseButton::LEFT) {
+            if(button.down) {
+                if(mouseHovering) {
+                    isHeld = true;
+                    penStartPos = button.pos;
+                    hasMovedPen = false;
+                    gui.invalidate_draw_element(this);
+                }
+            } else {
+                if(mouseHovering && isHeld && !hasMovedPen) {
+                    gui.set_post_callback_func([&] { if(onClick) onClick(); });
+                }
+                isHeld = false;
+                hasMovedPen = false;
+                gui.invalidate_draw_element(this);
+            }
+        }
+    } else {
+        if(mouseHovering && button.button == InputManager::MouseButton::LEFT && button.down) {
+            gui.set_post_callback_func([&] { if(onClick) onClick(); });
+            isHeld = true;
+        }
+        else
+            isHeld = false;
     }
-    else
-        isHeld = false;
+}
+
+void RadioButton::input_mouse_motion_callback(const InputManager::MouseMotionCallbackArgs& motion) {
+    if(motion.deviceType == InputManager::MouseDeviceType::PEN && isHeld) {
+        if((motion.pos - penStartPos).norm() > 8.0f) {
+            hasMovedPen = true;
+            isHeld = false;
+            gui.invalidate_draw_element(this);
+        }
+    }
 }
 
 void RadioButton::input_finger_touch_callback(const InputManager::FingerTouchCallbackArgs& touch) {
@@ -72,6 +102,7 @@ void RadioButton::input_finger_touch_callback(const InputManager::FingerTouchCal
             isHeld = true;
             touchStartPos = touch.pos;
             hasMovedTouch = false;
+            gui.invalidate_draw_element(this);
         }
     } else {
         if(mouseHovering && isHeld && !hasMovedTouch) {
@@ -79,6 +110,7 @@ void RadioButton::input_finger_touch_callback(const InputManager::FingerTouchCal
         }
         isHeld = false;
         hasMovedTouch = false;
+        gui.invalidate_draw_element(this);
     }
 }
 
@@ -87,6 +119,7 @@ void RadioButton::input_finger_motion_callback(const InputManager::FingerMotionC
         if((motion.pos - touchStartPos).norm() > 8.0f) {
             hasMovedTouch = true;
             isHeld = false;
+            gui.invalidate_draw_element(this);
         }
     }
 }

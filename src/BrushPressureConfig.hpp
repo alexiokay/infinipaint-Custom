@@ -13,7 +13,7 @@ struct Config {
     bool hasRoundCaps = true;
     float relativeWidth = 15.0f;
     Response pressureResponse = Response::Time;
-    Engine engine = Engine::Compatibility;
+    Engine engine = Engine::Samples;
     Rendering rendering = Rendering::Polyline;
     double pressureTimeMs = 40;
     float grainIntensity = 0.0f; // 0.0 = clean vector fill, up to 1.0 = heavy paper tooth/charcoal
@@ -25,7 +25,7 @@ struct Config {
         if (!pipelineExplicit && !correctionIndependent && pressureResponse == Response::Original) correction=false;
         correctionIndependent=true;
         if (!pipelineExplicit) {
-            engine = correction || pressureResponse != Response::Original ? Engine::Samples : Engine::Compatibility;
+            engine = Engine::Samples;
             pipelineExplicit = true;
         }
     }
@@ -46,7 +46,8 @@ struct Config {
         c = Config{};
         c.pressureResponse = Response::Original; // Old files keep their former width policy.
         c.pipelineExplicit = j.contains("engine");
-        if (j.value("engine", nlohmann::json()) == "samples") c.engine = Engine::Samples;
+        if (j.value("engine", nlohmann::json()) == "original") c.engine = Engine::Compatibility;
+        else c.engine = Engine::Samples;
         if (j.value("rendering", nlohmann::json()) == "bounded") c.rendering = Rendering::BoundedCurves;
         if (j.contains("pressureTimeMs") && j["pressureTimeMs"].is_number()) {
             const double ms = j["pressureTimeMs"].get<double>();

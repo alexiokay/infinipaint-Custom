@@ -59,6 +59,8 @@ class SelectableButton : public Element {
         bool isHovering = false;
         Vector2f touchStartPos{0.0f, 0.0f};
         bool hasMovedTouch = false;
+        Vector2f penStartPos{0.0f, 0.0f};
+        bool hasMovedPen = false;
         std::function<void()> onClick;
 };
 
