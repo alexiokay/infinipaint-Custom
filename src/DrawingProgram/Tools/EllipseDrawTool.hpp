@@ -39,6 +39,7 @@ class EllipseDrawTool : public DrawingProgramToolBase {
         virtual void input_mouse_button_on_canvas_callback(const InputManager::MouseButtonCallbackArgs& button) override;
         virtual void input_mouse_motion_callback(const InputManager::MouseMotionCallbackArgs& motion) override;
     private:
+        void gui_inspector();
         void commit();
 
         bool commitUpdate = false;

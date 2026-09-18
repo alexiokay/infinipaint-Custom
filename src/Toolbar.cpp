@@ -400,32 +400,14 @@ void Toolbar::quick_colors() {
     auto* selected = main.world->drawProg.get_foreground_color_ptr();
     if (!selected) return;
 
-    // Active color well (Option A: Clicking it opens the real precision Color Picker)
-    color_button(gui, "active studio color", selected, FixedSizeColorButtonOptions{
-        .drawType = SelectableButton::DrawType::FILLED,
-        .isSelected = colorLeft == selected,
-        .hasAlpha = true,
-        .size = 28,
-        .onClickButton = [this, selected](SelectableButton* b) {
-            color_selector_left(b, selected, {
-                .onChange = [this] {
-                    if (auto* c = main.world->drawProg.get_foreground_color_ptr()) {
-                        add_recent_color(Vector3f{c->x(), c->y(), c->z()});
-                    }
-                    main.g.gui.set_to_layout();
-                }
-            });
-        }
-    });
-
     if (recentColors.empty() && paletteData.selectedPalette < main.conf.palettes.size()) {
         const auto& palette = main.conf.palettes[paletteData.selectedPalette].colors;
-        for (size_t i = 0; i < std::min<size_t>(4, palette.size()); ++i) {
+        for (size_t i = 0; i < std::min<size_t>(5, palette.size()); ++i) {
             recentColors.push_back(palette[i]);
         }
     }
 
-    for (size_t i = 0; i < std::min<size_t>(4, recentColors.size()); ++i) {
+    for (size_t i = 0; i < std::min<size_t>(5, recentColors.size()); ++i) {
         gui.new_id(static_cast<uint32_t>(i), [&, i] {
             auto swatch = std::make_shared<Vector3f>(recentColors[i]);
             const bool isSelected = (std::abs(selected->x() - recentColors[i].x()) < 0.02f &&

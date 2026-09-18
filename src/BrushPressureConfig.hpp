@@ -18,6 +18,7 @@ struct Config {
     double pressureTimeMs = 40;
     float grainIntensity = 0.0f; // 0.0 = clean vector fill, up to 1.0 = heavy paper tooth/charcoal
     float grainScale = 1.0f;     // paper tooth frequency/scale
+    bool flatOverlap = false;    // When true, overlapping strokes of identical color merge flat
     bool pipelineExplicit = true; // Runtime migration state; serialized by engine key.
     bool correctionIndependent = false; // Migrated once after both configs load.
     bool samplePath() const { return engine == Engine::Samples; }
@@ -39,6 +40,7 @@ struct Config {
             {"pressureTimeMs", c.pressureTimeMs},
             {"grainIntensity", c.grainIntensity},
             {"grainScale", c.grainScale},
+            {"flatOverlap", c.flatOverlap},
             // Older fork builds understand this key, but not peak mode.
             {"preservePenPressure", c.pressureResponse == Response::Preserve}};
     }
@@ -56,6 +58,8 @@ struct Config {
             c.correctionIndependent=j["correctionIndependent"].get<bool>();
         if (j.contains("hasRoundCaps") && j["hasRoundCaps"].is_boolean())
             c.hasRoundCaps = j["hasRoundCaps"].get<bool>();
+        if (j.contains("flatOverlap") && j["flatOverlap"].is_boolean())
+            c.flatOverlap = j["flatOverlap"].get<bool>();
         if (j.contains("relativeWidth") && j["relativeWidth"].is_number()) {
             const float width = j["relativeWidth"].get<float>();
             if (std::isfinite(width) && width >= 0) c.relativeWidth = width;

@@ -7,3 +7,4 @@ CMakeUserPresets.json
 compile_commands.json
 bscript
 .directory
+diagnostics-*/

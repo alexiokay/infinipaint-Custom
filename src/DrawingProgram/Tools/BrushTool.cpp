@@ -33,6 +33,7 @@
 #include "../../GUIStuff/ElementHelpers/CheckBoxHelpers.hpp"
 #include "../../GUIStuff/ElementHelpers/RadioButtonHelpers.hpp"
 #include <include/pathops/SkPathOps.h>
+#include "../EditCanvasComponentWorldUndoAction.hpp"
 
 BrushTool::BrushTool(DrawingProgram& initDrawP):
     DrawingProgramToolBase(initDrawP)
@@ -44,6 +45,7 @@ DrawingProgramToolType BrushTool::get_type() {
 
 void BrushTool::switch_tool(DrawingProgramToolType newTool) {
     commit_stroke();
+    canMergeWithPrevious = false;
 }
 
 void BrushTool::erase_component(CanvasComponentContainer::ObjInfo* erasedComp) {
@@ -51,6 +53,7 @@ void BrushTool::erase_component(CanvasComponentContainer::ObjInfo* erasedComp) {
         objInfoBeingEdited = nullptr;
         commitUpdate = false;
     }
+    canMergeWithPrevious = false;
 }
 
 void BrushTool::input_mouse_button_on_canvas_callback(const InputManager::MouseButtonCallbackArgs& button) {
@@ -143,14 +146,85 @@ void BrushTool::commit_stroke() {
     if(objInfoBeingEdited) {
         NetworkingObjects::NetObjOwnerPtr<CanvasComponentContainer>& containerPtr = objInfoBeingEdited->obj;
         if (!genData.penPath) BrushComponentCode::fix_tip(genData.brushPoints);
-        commit_data(true);
-        if(containerPtr->get_world_bounds().has_value())
-            drawP.layerMan.add_undo_place_component(objInfoBeingEdited);
-        else {
+
+        bool merged = false;
+        if (drawP.world.main.toolConfig.brush.flatOverlap && canMergeWithPrevious) {
+            MeshCanvasComponent& newMesh = static_cast<MeshCanvasComponent&>(containerPtr->get_comp());
+            newMesh.d.meshPath = BrushComponentCode::brush_stroke_to_skpath(
+                genData.brushPoints,
+                drawP.world.main.toolConfig.brush.hasRoundCaps,
+                genData.penPath,
+                genData.boundedCurves,
+                genData.penDisplayScale
+            );
+            containerPtr->get_comp().simplify_paths();
+
             auto& components = containerPtr->parentLayer->get_layer().components;
-            components->erase(components, containerPtr->objInfo);
+            if (containerPtr->objInfo != components->begin()) {
+                auto prevIt = std::prev(containerPtr->objInfo);
+                CanvasComponentContainer* prevContainer = prevIt->obj.get();
+                if (prevContainer && prevContainer->get_comp_type() == CanvasComponentType::MESH) {
+                    MeshCanvasComponent& prevMesh = static_cast<MeshCanvasComponent&>(prevContainer->get_comp());
+                    if (prevMesh.d.color.x() == newMesh.d.color.x() &&
+                        prevMesh.d.color.y() == newMesh.d.color.y() &&
+                        prevMesh.d.color.z() == newMesh.d.color.z() &&
+                        prevMesh.d.color.w() == newMesh.d.color.w()) {
+                        
+                        auto drawTransform = CanvasComponentContainer::calculate_draw_transform(containerPtr->coords, prevContainer->coords);
+                        SkMatrix m = SkMatrix::I();
+                        m.postScale(1.0 / drawTransform.scale, 1.0 / drawTransform.scale)
+                         .postRotate(-drawTransform.rotation)
+                         .postTranslate(-drawTransform.translation.x(), -drawTransform.translation.y());
+                        
+                        std::optional<SkPath> currInPrevCoords = newMesh.d.meshPath.tryMakeTransform(m);
+                        if (currInPrevCoords.has_value()) {
+                            SkRect prevBounds = prevMesh.d.meshPath.getBounds();
+                            SkRect currBounds = currInPrevCoords.value().getBounds();
+                            prevBounds.outset(2.0f, 2.0f);
+                            if (prevBounds.intersects(currBounds)) {
+                                std::optional<SkPath> unionResult = Op(prevMesh.d.meshPath, currInPrevCoords.value(), SkPathOp::kUnion_SkPathOp);
+                                if (unionResult.has_value() && !unionResult.value().isEmpty()) {
+                                    drawP.world.undo.push(std::make_unique<EditTransformCanvasComponentWorldUndoAction>(
+                                        prevContainer->get_comp().get_data_copy(),
+                                        prevContainer->coords,
+                                        drawP.world.undo.get_undoid_from_netid(prevContainer->get_net_id())
+                                    ));
+                                    prevMesh.d.meshPath = unionResult.value();
+                                    prevMesh.simplify_paths();
+                                    prevContainer->normalize_object_coordinates();
+                                    prevContainer->calculate_world_bounds();
+                                    prevContainer->commit_update(drawP);
+                                    drawP.world.send_reliable_multi_command_to_all([&]() {
+                                        drawP.send_transforms_for({prevIt});
+                                        prevContainer->send_comp_update(drawP, true);
+                                    });
+                                    components->erase(components, containerPtr->objInfo);
+                                    objInfoBeingEdited = nullptr;
+                                    commitUpdate = false;
+                                    merged = true;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
         }
-        objInfoBeingEdited = nullptr;
+
+        if (!merged) {
+            commit_data(true);
+            if(containerPtr->get_world_bounds().has_value()) {
+                drawP.layerMan.add_undo_place_component(objInfoBeingEdited);
+                canMergeWithPrevious = true;
+            }
+            else {
+                auto& components = containerPtr->parentLayer->get_layer().components;
+                components->erase(components, containerPtr->objInfo);
+                canMergeWithPrevious = false;
+            }
+            objInfoBeingEdited = nullptr;
+        } else {
+            canMergeWithPrevious = true;
+        }
     }
 }
 
@@ -180,12 +254,16 @@ void BrushTool::gui_inspector() {
                         main.toolConfig.brush.engine = BrushPressure::Engine::Samples;
                     }
                 });
-                slider_scalar_field(gui, "paper grain", "Paper Grain / Tooth", &drawP.world.main.toolConfig.brush.grainIntensity, 0.0f, 1.0f, {.decimalPrecision = 2});
+                checkbox_boolean_field(gui, "flat overlap", "Flat coloring (No overlap stripes)", &drawP.world.main.toolConfig.brush.flatOverlap);
+                inspector_hint(gui, "Merges overlapping strokes of the same color into a single seamless shape.");
             });
             text_button(gui, "advanced", advancedSettingsOpen ? "Less" : "Advanced", {
                 .drawType = SelectableButton::DrawType::TRANSPARENT_BORDER,
                 .isSelected = advancedSettingsOpen, .wide = true,
-                .onClick = [this] { advancedSettingsOpen = !advancedSettingsOpen; }
+                .onClick = [this] {
+                    advancedSettingsOpen = !advancedSettingsOpen;
+                    drawP.world.main.g.gui.set_to_layout();
+                }
             });
             if (advancedSettingsOpen) {
                 inspector_section(gui, "PEN ENGINE", [&] {
@@ -222,21 +300,25 @@ void BrushTool::gui_inspector() {
                     } else {
                         inspector_hint(gui, "Original width propagation is not used by this pen mode.");
                     }
-                    if (main.toolConfig.brush.samplePath()) {
+                });
+                if (main.toolConfig.brush.samplePath()) {
+                    inspector_section(gui, "CURVE GEOMETRY", [&] {
                         using Rendering = BrushPressure::Rendering;
                         radio_button_selector<Rendering>(gui, "curve rendering", &main.toolConfig.brush.rendering, {
                             {"Sample polyline", Rendering::Polyline},
                             {"Bounded curves (experimental)", Rendering::BoundedCurves}
                         });
                         inspector_hint(gui, "Curves add up to 0.25 DIP from sample chords; not original interpolation.");
-                    }
-                    if (main.toolConfig.brush.samplePath() && main.conf.tabletOptions.penFilter.enabled) {
+                    });
+                }
+                if (main.toolConfig.brush.samplePath() && main.conf.tabletOptions.penFilter.enabled) {
+                    inspector_section(gui, "STABILIZER TUNING", [&] {
                         slider_scalar_field(gui, "radius", "Radius (DIP)", &main.conf.tabletOptions.penFilter.radius, 4.0, 20.0, {.decimalPrecision = 1});
                         slider_scalar_field(gui, "window", "Revision (seconds)", &main.conf.tabletOptions.penFilter.window, 0.040, 0.200, {.decimalPrecision = 3});
                         slider_scalar_field(gui, "cap", "Max correction (DIP)", &main.conf.tabletOptions.penFilter.cap, 0.0, 6.0, {.decimalPrecision = 1});
                         inspector_hint(gui, "Larger windows can soften detail. The recent path can revise.");
-                    }
-                });
+                    });
+                }
             }
         });
     });

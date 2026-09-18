@@ -69,6 +69,8 @@ class ScrollArea : public Element {
         Vector2f penScrollStartPos = {0.0f, 0.0f};
         bool penScrollHeld = false;
         bool penScrollMoved = false;
+        Vector2f touchScrollStartPos = {0.0f, 0.0f};
+        bool touchScrollMoved = false;
 
         struct ScrollbarData {
             bool isScrollbarHeld = false;

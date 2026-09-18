@@ -54,5 +54,6 @@ class BrushTool : public DrawingProgramToolBase {
 
         BrushComponentCode::BrushStrokeGenerationData genData;
         bool commitUpdate = false;
+        bool canMergeWithPrevious = false;
         CanvasComponentContainer::ObjInfo* objInfoBeingEdited = nullptr;
 };

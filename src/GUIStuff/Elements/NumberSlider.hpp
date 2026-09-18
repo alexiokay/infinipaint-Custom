@@ -122,6 +122,40 @@ template <typename T> class NumberSlider : public Element {
             canvas->restore();
         }
         virtual void input_mouse_button_callback(const InputManager::MouseButtonCallbackArgs& button) override {
+            if(button.deviceType == InputManager::MouseDeviceType::PEN) {
+                if(button.button == InputManager::MouseButton::LEFT) {
+                    if(button.down) {
+                        penStartPos = button.pos;
+                        if(data) penInitialVal = *data;
+                        penScrollingAway = false;
+                        penIsDragging = false;
+                        penIsInteracting = mouseHovering;
+                    } else {
+                        if(penIsDragging) {
+                            dd.isHeld = false;
+                            penIsDragging = false;
+                            penIsInteracting = false;
+                            gui.set_post_callback_func([&] {
+                                if(config.onRelease) config.onRelease();
+                            });
+                            gui.set_to_layout();
+                        } else if(penIsInteracting && !penScrollingAway) {
+                            if((button.pos - penStartPos).norm() <= 7.0f && boundingBox.has_value()) {
+                                update_slider_pos(button.pos, true);
+                                gui.set_post_callback_func([&] {
+                                    if(config.onRelease) config.onRelease();
+                                });
+                            }
+                            dd.isHeld = false;
+                            penIsInteracting = false;
+                            gui.set_to_layout();
+                        }
+                        penScrollingAway = false;
+                    }
+                }
+                return;
+            }
+
             bool oldIsHeld = dd.isHeld;
             dd.isHeld = mouseHovering && button.button == InputManager::MouseButton::LEFT && button.down;
             if(oldIsHeld && !dd.isHeld) {
@@ -134,49 +168,116 @@ template <typename T> class NumberSlider : public Element {
         }
 
         virtual void input_mouse_motion_callback(const InputManager::MouseMotionCallbackArgs& motion) override {
+            if(motion.deviceType == InputManager::MouseDeviceType::PEN) {
+                if(!penIsInteracting || penScrollingAway || !boundingBox.has_value())
+                    return;
+
+                Vector2f diff = motion.pos - penStartPos;
+                float dx = std::abs(diff.x());
+                float dy = std::abs(diff.y());
+
+                if(!penIsDragging) {
+                    if(dy > 7.0f && dy > dx) {
+                        penScrollingAway = true;
+                        penIsInteracting = false;
+                        dd.isHeld = false;
+                        if(data) { *data = penInitialVal; dd.val = penInitialVal; }
+                        gui.set_to_layout();
+                        return;
+                    }
+                    if(dx > 5.0f && dx >= dy) {
+                        penIsDragging = true;
+                        dd.isHeld = true;
+                        update_slider_pos(motion.pos, true);
+                        gui.set_to_layout();
+                        return;
+                    }
+                } else {
+                    update_slider_pos(motion.pos, false);
+                }
+                return;
+            }
+
             if(dd.isHeld && boundingBox.has_value())
                 update_slider_pos(motion.pos, false);
         }
 
         virtual void input_finger_touch_callback(const InputManager::FingerTouchCallbackArgs& touch) override {
-            bool oldIsHeld = dd.isHeld;
             if(touch.down) {
-                sliderTouchStart = touch.pos;
-                sliderScrollingAway = false;
-                dd.isHeld = mouseHovering;
-                if(dd.isHeld && boundingBox.has_value())
-                    update_slider_pos(touch.pos, true);
+                touchStartPos = touch.pos;
+                if(data) touchInitialVal = *data;
+                touchScrollingAway = false;
+                touchIsDragging = false;
+                touchIsInteracting = mouseHovering;
             } else {
-                dd.isHeld = false;
-                sliderScrollingAway = false;
-                if(oldIsHeld) {
+                if(touchIsDragging) {
+                    dd.isHeld = false;
+                    touchIsDragging = false;
+                    touchIsInteracting = false;
                     gui.set_post_callback_func([&] {
                         if(config.onRelease) config.onRelease();
                     });
+                    gui.set_to_layout();
+                } else if(touchIsInteracting && !touchScrollingAway) {
+                    if((touch.pos - touchStartPos).norm() <= 7.0f && boundingBox.has_value()) {
+                        update_slider_pos(touch.pos, true);
+                        gui.set_post_callback_func([&] {
+                            if(config.onRelease) config.onRelease();
+                        });
+                    }
+                    dd.isHeld = false;
+                    touchIsInteracting = false;
+                    gui.set_to_layout();
                 }
+                touchScrollingAway = false;
             }
         }
 
         virtual void input_finger_motion_callback(const InputManager::FingerMotionCallbackArgs& motion) override {
-            if(dd.isHeld && boundingBox.has_value()) {
-                if(!sliderScrollingAway) {
-                    Vector2f diff = motion.pos - sliderTouchStart;
-                    if(std::abs(diff.y()) > 10.0f && std::abs(diff.y()) > std::abs(diff.x()) * 1.5f) {
-                        sliderScrollingAway = true;
-                        dd.isHeld = false;
-                        gui.set_to_layout();
-                        return;
-                    }
+            if(!touchIsInteracting || touchScrollingAway || !boundingBox.has_value())
+                return;
+
+            Vector2f diff = motion.pos - touchStartPos;
+            float dx = std::abs(diff.x());
+            float dy = std::abs(diff.y());
+
+            if(!touchIsDragging) {
+                if(dy > 7.0f && dy > dx) {
+                    touchScrollingAway = true;
+                    touchIsInteracting = false;
+                    dd.isHeld = false;
+                    if(data) { *data = touchInitialVal; dd.val = touchInitialVal; }
+                    gui.set_to_layout();
+                    return;
                 }
+                if(dx > 5.0f && dx >= dy) {
+                    touchIsDragging = true;
+                    dd.isHeld = true;
+                    update_slider_pos(motion.pos, true);
+                    gui.set_to_layout();
+                    return;
+                }
+            } else {
                 update_slider_pos(motion.pos, false);
             }
         }
 
     private:
-        Vector2f sliderTouchStart{0.0f, 0.0f};
-        bool sliderScrollingAway = false;
+        Vector2f penStartPos{0.0f, 0.0f};
+        T penInitialVal = 0;
+        bool penIsInteracting = false;
+        bool penIsDragging = false;
+        bool penScrollingAway = false;
+
+        Vector2f touchStartPos{0.0f, 0.0f};
+        T touchInitialVal = 0;
+        bool touchIsInteracting = false;
+        bool touchIsDragging = false;
+        bool touchScrollingAway = false;
+
         void update_slider_pos(const Vector2f& p, bool justHeld) {
             gui.set_post_callback_func([&, p, justHeld] {
+                if(!data || !boundingBox.has_value()) return;
                 float fracPosOnSlider = UIControlGeometry::sliderFraction(boundingBox.value().width(), p.x()-boundingBox.value().min.x());
                 dd.val = *data = static_cast<T>(std::clamp<double>(std::lerp<double>(dd.minData, dd.maxData, fracPosOnSlider), dd.minData, dd.maxData));
                 if(justHeld && config.onHold) config.onHold();

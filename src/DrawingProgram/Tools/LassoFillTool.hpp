@@ -1,4 +1,4 @@
-/*  
+﻿/*  
  * InfiniPaint
  * Copyright (C) 2025-2026 Yousef Khadadeh
  *
@@ -17,32 +17,33 @@
  */
 
 #pragma once
-#include "DrawingProgramToolBase.hpp"
+#include <include/core/SkCanvas.h>
+#include "../../DrawData.hpp"
 #include <Helpers/SCollision.hpp>
-#include "../../CanvasComponents/CanvasComponentContainer.hpp"
+#include "../../CoordSpaceHelper.hpp"
+#include "DrawingProgramToolBase.hpp"
 
 class DrawingProgram;
 
-class RectDrawTool : public DrawingProgramToolBase {
+class LassoFillTool : public DrawingProgramToolBase {
     public:
-        RectDrawTool(DrawingProgram& initDrawP);
+        LassoFillTool(DrawingProgram& initDrawP);
         virtual DrawingProgramToolType get_type() override;
         virtual void gui_toolbox(Toolbar& t) override;
         virtual void gui_phone_toolbox(PhoneDrawingProgramScreen& t) override;
         virtual void right_click_popup_gui(Toolbar& t, Vector2f popupPos) override;
         virtual void erase_component(CanvasComponentContainer::ObjInfo* erasedComp) override;
         virtual void tool_update() override;
-        virtual void switch_tool(DrawingProgramToolType newTool) override;
         virtual void draw(SkCanvas* canvas, const DrawData& drawData) override;
+        virtual void switch_tool(DrawingProgramToolType newTool) override;
         virtual bool prevent_undo_or_redo() override;
+        virtual Vector4f* color_picker_color(Vector4f* oldColor) override;
         virtual void input_mouse_button_on_canvas_callback(const InputManager::MouseButtonCallbackArgs& button) override;
         virtual void input_mouse_motion_callback(const InputManager::MouseMotionCallbackArgs& motion) override;
     private:
-        void gui_inspector();
-        bool commitUpdate = false;
-
-        void commit();
-
-        Vector2f startAt;
-        CanvasComponentContainer::ObjInfo* objInfoBeingEdited = nullptr;
+        struct FillControls {
+            bool isFilling = false;
+            CoordSpaceHelper coords;
+            std::vector<Vector2f> points;
+        } controls;
 };

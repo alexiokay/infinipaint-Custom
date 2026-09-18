@@ -8,6 +8,8 @@ on:
       - 'windowsinstall/ci/**'
       - 'src/**'
       - 'tests/**'
+      - 'assets/**'
+      - 'CMakeLists.txt'
 permissions:
   contents: read
 concurrency:
@@ -37,6 +39,7 @@ jobs:
           python3 tests/check_pen_pressure_setting.py
           python3 tests/check_graphite_ui.py
           python3 tests/check_original_compatibility.py
+          python3 tests/test_fill_and_flat_overlap.py
           cmake -S tests -B build-tests -DPENTRACE_REFERENCE="$PWD/reference" -DPENTRACE_REPLAY_SOURCE="$PWD/replay-source" -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CXX_FLAGS="-fsanitize=address,undefined -fno-omit-frame-pointer"
           cmake --build build-tests --parallel 2
           ctest --test-dir build-tests --output-on-failure

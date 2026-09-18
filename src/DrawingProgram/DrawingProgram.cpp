@@ -262,6 +262,11 @@ void DrawingProgram::input_key_callback(const InputManager::KeyCallbackArgs& key
                 switch_to_tool(DrawingProgramToolType::LINE);
             break;
         }
+        case InputManager::KEY_DRAW_TOOL_FILL: {
+            if(key.down && !key.repeat)
+                switch_to_tool(DrawingProgramToolType::FILL);
+            break;
+        }
         case InputManager::KEY_HOLD_TO_PAN: {
             if(key.down && !key.repeat && tempMoveToolSwitch == TemporaryMoveToolSwitch::NONE) {
                 toolTypeAfterTempMove = drawTool->get_type();
@@ -423,6 +428,7 @@ void DrawingProgram::toolbar_gui(Toolbar& t) {
 
                 tool_button("Brush Toolbar Button", "data/icons/brush.svg", DrawingProgramToolType::BRUSH);
                 tool_button("Eraser Toolbar Button", "data/icons/eraser.svg", DrawingProgramToolType::ERASER);
+                tool_button("Fill Toolbar Button", "data/icons/fill.svg", DrawingProgramToolType::FILL);
                 tool_button("Line Toolbar Button", "data/icons/line.svg", DrawingProgramToolType::LINE);
                 tool_button("Text Toolbar Button", "data/icons/text.svg", DrawingProgramToolType::TEXTBOX);
                 tool_button("Ellipse Toolbar Button", "data/icons/circle.svg", DrawingProgramToolType::ELLIPSE);
@@ -578,6 +584,7 @@ static const char* get_tool_icon_path(DrawingProgramToolType type) {
         case DrawingProgramToolType::ZOOM: return "data/icons/zoom.svg";
         case DrawingProgramToolType::PAN: return "data/icons/hand.svg";
         case DrawingProgramToolType::LINE: return "data/icons/line.svg";
+        case DrawingProgramToolType::FILL: return "data/icons/fill.svg";
         default: return "data/icons/brush.svg";
     }
 }
@@ -586,6 +593,7 @@ static const char* get_tool_title(DrawingProgramToolType type) {
     switch(type) {
         case DrawingProgramToolType::BRUSH: return "Brush Studio";
         case DrawingProgramToolType::ERASER: return "Eraser";
+        case DrawingProgramToolType::FILL: return "Fill Tool";
         case DrawingProgramToolType::LASSOSELECT: return "Lasso Select";
         case DrawingProgramToolType::RECTSELECT: return "Rect Select";
         case DrawingProgramToolType::RECTANGLE: return "Rectangle";
@@ -805,7 +813,8 @@ void DrawingProgram::tool_options_gui(Toolbar& t) {
                                            type == DrawingProgramToolType::LINE ||
                                            type == DrawingProgramToolType::RECTANGLE ||
                                            type == DrawingProgramToolType::ELLIPSE ||
-                                           type == DrawingProgramToolType::TEXTBOX);
+                                           type == DrawingProgramToolType::TEXTBOX ||
+                                           type == DrawingProgramToolType::FILL);
                 if (toolHasColor) {
                     left_to_right_layout(gui, CLAY_SIZING_GROW(0), CLAY_SIZING_FIXED(static_cast<float>(io.theme->controlHeight)), [&] {
                         text_label(gui, "Colors");

@@ -41,14 +41,18 @@ class ToolConfiguration {
         struct EllipseDrawToolConfig {
             float relativeWidth = 15.0f;
             unsigned fillStrokeMode = 1;
-            NLOHMANN_DEFINE_TYPE_INTRUSIVE_WITH_DEFAULT(EllipseDrawToolConfig, relativeWidth, fillStrokeMode)
+            bool perfectCircle = false;
+            bool fromCenter = false;
+            NLOHMANN_DEFINE_TYPE_INTRUSIVE_WITH_DEFAULT(EllipseDrawToolConfig, relativeWidth, fillStrokeMode, perfectCircle, fromCenter)
         } ellipseDraw;
 
         struct RectDrawToolConfig {
             float relativeWidth = 15.0f;
             float relativeRadiusWidth = 10.0f;
             int fillStrokeMode = 1;
-            NLOHMANN_DEFINE_TYPE_INTRUSIVE_WITH_DEFAULT(RectDrawToolConfig, relativeWidth, relativeRadiusWidth, fillStrokeMode)
+            bool perfectSquare = false;
+            bool fromCenter = false;
+            NLOHMANN_DEFINE_TYPE_INTRUSIVE_WITH_DEFAULT(RectDrawToolConfig, relativeWidth, relativeRadiusWidth, fillStrokeMode, perfectSquare, fromCenter)
         } rectDraw;
 
         struct EyeDropperToolConfig {

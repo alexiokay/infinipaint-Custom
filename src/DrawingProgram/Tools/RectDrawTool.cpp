@@ -24,9 +24,11 @@
 #include "../../CanvasComponents/RectangleCanvasComponent.hpp"
 #include "../../CanvasComponents/CanvasComponentContainer.hpp"
 
+#include "../../GUIStuff/ElementHelpers/RadioButtonHelpers.hpp"
+#include "../../GUIStuff/ElementHelpers/CheckBoxHelpers.hpp"
+#include "../../GUIStuff/ElementHelpers/ToolInspectorHelpers.hpp"
 #include "../../GUIStuff/ElementHelpers/TextLabelHelpers.hpp"
 #include "../../GUIStuff/ElementHelpers/NumberSliderHelpers.hpp"
-#include "../../GUIStuff/ElementHelpers/RadioButtonHelpers.hpp"
 
 RectDrawTool::RectDrawTool(DrawingProgram& initDrawP):
     DrawingProgramToolBase(initDrawP)
@@ -36,7 +38,7 @@ DrawingProgramToolType RectDrawTool::get_type() {
     return DrawingProgramToolType::RECTANGLE;
 }
 
-void RectDrawTool::gui_toolbox(Toolbar& t) {
+void RectDrawTool::gui_inspector() {
     using namespace GUIStuff;
     using namespace ElementHelpers;
 
@@ -45,36 +47,35 @@ void RectDrawTool::gui_toolbox(Toolbar& t) {
     auto& fillStrokeMode = toolConfig.rectDraw.fillStrokeMode;
     auto& relativeRadiusWidth = toolConfig.rectDraw.relativeRadiusWidth;
     gui.new_id("rect draw tool", [&] {
-        text_label_centered(gui, "Draw Rectangle");
-        slider_scalar_field(gui, "relradiuswidth", "Corner Radius", &relativeRadiusWidth, 0.0f, 40.0f);
-        radio_button_selector(gui, "fill type", &fillStrokeMode, {
-            {"Fill only", 0},
-            {"Outline only", 1},
-            {"Fill and Outline", 2}
+        tool_inspector(gui, "Rectangle / Square", [&] {
+            inspector_section(gui, "GEOMETRY", [&] {
+                checkbox_boolean_field(gui, "perfect square", "1:1 Square (Constrain aspect ratio)", &toolConfig.rectDraw.perfectSquare);
+                checkbox_boolean_field(gui, "from center", "Draw from center (Start at click)", &toolConfig.rectDraw.fromCenter);
+                slider_scalar_field(gui, "relradiuswidth", "Corner Radius", &relativeRadiusWidth, 0.0f, 40.0f);
+                inspector_hint(gui, "Hold Shift for 1:1 square, or Alt to draw from center.");
+            });
+            inspector_section(gui, "STYLE", [&] {
+                radio_button_selector(gui, "fill type", &fillStrokeMode, {
+                    {"Fill only", 0},
+                    {"Outline only", 1},
+                    {"Fill and Outline", 2}
+                });
+            });
+            if(fillStrokeMode == 1 || fillStrokeMode == 2) {
+                inspector_section(gui, "OUTLINE", [&] {
+                    toolConfig.relative_width_gui(drawP, "Outline Size");
+                });
+            }
         });
-        if(fillStrokeMode == 1 || fillStrokeMode == 2)
-            toolConfig.relative_width_gui(drawP, "Outline Size");
     });
 }
 
-void RectDrawTool::gui_phone_toolbox(PhoneDrawingProgramScreen& t) {
-    using namespace GUIStuff;
-    using namespace ElementHelpers;
+void RectDrawTool::gui_toolbox(Toolbar&) {
+    gui_inspector();
+}
 
-    auto& gui = drawP.world.main.g.gui;
-    auto& toolConfig = drawP.world.main.toolConfig;
-    auto& fillStrokeMode = toolConfig.rectDraw.fillStrokeMode;
-    auto& relativeRadiusWidth = toolConfig.rectDraw.relativeRadiusWidth;
-    gui.new_id("rect draw tool", [&] {
-        slider_scalar_field(gui, "relradiuswidth", "Corner Radius", &relativeRadiusWidth, 0.0f, 40.0f);
-        radio_button_selector(gui, "fill type", &fillStrokeMode, {
-            {"Fill only", 0},
-            {"Outline only", 1},
-            {"Fill and Outline", 2}
-        });
-        if(fillStrokeMode == 1 || fillStrokeMode == 2)
-            toolConfig.relative_width_gui(drawP, "Outline Size");
-    });
+void RectDrawTool::gui_phone_toolbox(PhoneDrawingProgramScreen&) {
+    gui_inspector();
 }
 
 void RectDrawTool::input_mouse_button_on_canvas_callback(const InputManager::MouseButtonCallbackArgs& button) {
@@ -96,7 +97,8 @@ void RectDrawTool::input_mouse_button_on_canvas_callback(const InputManager::Mou
             CanvasComponentContainer* newContainer = new CanvasComponentContainer(drawP.world.netObjMan, CanvasComponentType::RECTANGLE);
             RectangleCanvasComponent& newRectangle = static_cast<RectangleCanvasComponent&>(newContainer->get_comp());
 
-            startAt = button.pos;
+            newContainer->coords = drawP.world.drawData.cam.c;
+            startAt = newContainer->coords.from_cam_space_to_this(drawP.world, button.pos);
             newRectangle.d.strokeColor = toolConfig.globalConf.foregroundColor;
             newRectangle.d.fillColor = toolConfig.globalConf.backgroundColor;
             newRectangle.d.cornerRadius = radiusWidth;
@@ -105,7 +107,6 @@ void RectDrawTool::input_mouse_button_on_canvas_callback(const InputManager::Mou
             newRectangle.d.p2 = startAt;
             newRectangle.d.p2 = ensure_points_have_distance(newRectangle.d.p1, newRectangle.d.p2, MINIMUM_DISTANCE_BETWEEN_BOUNDS);
             newRectangle.d.fillStrokeMode = static_cast<uint8_t>(fillStrokeMode);
-            newContainer->coords = drawP.world.drawData.cam.c;
             objInfoBeingEdited = drawP.layerMan.add_component_to_layer_being_edited(newContainer);
         }
         else if(!button.down && objInfoBeingEdited)
@@ -117,13 +118,33 @@ void RectDrawTool::input_mouse_motion_callback(const InputManager::MouseMotionCa
     if(objInfoBeingEdited) {
         NetworkingObjects::NetObjOwnerPtr<CanvasComponentContainer>& containerPtr = objInfoBeingEdited->obj;
         Vector2f newPos = containerPtr->coords.from_cam_space_to_this(drawP.world, motion.pos);
-        if(drawP.world.main.input.key(InputManager::KEY_GENERIC_LSHIFT).held) {
-            float height = std::fabs(startAt.y() - newPos.y());
-            newPos.x() = startAt.x() + (((newPos.x() - startAt.x()) < 0.0f ? -1.0f : 1.0f) * height);
-        }
+        auto& config = drawP.world.main.toolConfig.rectDraw;
+        bool constrain1to1 = config.perfectSquare || drawP.world.main.input.key(InputManager::KEY_GENERIC_LSHIFT).held;
+        bool fromCenter = config.fromCenter || drawP.world.main.input.key(InputManager::KEY_GENERIC_LALT).held;
+
         RectangleCanvasComponent& rectangle = static_cast<RectangleCanvasComponent&>(containerPtr->get_comp());
-        rectangle.d.p1 = cwise_vec_min(startAt, newPos);
-        rectangle.d.p2 = cwise_vec_max(startAt, newPos);
+        if(fromCenter) {
+            Vector2f offset = newPos - startAt;
+            float rx = std::fabs(offset.x());
+            float ry = std::fabs(offset.y());
+            if(constrain1to1) {
+                float r = std::max(rx, ry);
+                rx = ry = r;
+            }
+            rectangle.d.p1 = startAt - Vector2f(rx, ry);
+            rectangle.d.p2 = startAt + Vector2f(rx, ry);
+        } else {
+            if(constrain1to1) {
+                float dx = std::fabs(newPos.x() - startAt.x());
+                float dy = std::fabs(newPos.y() - startAt.y());
+                float side = std::max(dx, dy);
+                float signX = (newPos.x() >= startAt.x()) ? 1.0f : -1.0f;
+                float signY = (newPos.y() >= startAt.y()) ? 1.0f : -1.0f;
+                newPos = startAt + Vector2f(signX * side, signY * side);
+            }
+            rectangle.d.p1 = cwise_vec_min(startAt, newPos);
+            rectangle.d.p2 = cwise_vec_max(startAt, newPos);
+        }
         rectangle.d.p2 = ensure_points_have_distance(rectangle.d.p1, rectangle.d.p2, MINIMUM_DISTANCE_BETWEEN_BOUNDS);
         commitUpdate = true;
     }

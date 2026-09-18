@@ -53,7 +53,6 @@ class SelectableButton : public Element {
         virtual void input_finger_motion_callback(const InputManager::FingerMotionCallbackArgs& motion) override;
 
     private:
-        bool inDynamicArea = false;
         bool instantResponse = false;
         bool isHeld = false;
         bool isHovering = false;

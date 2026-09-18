@@ -160,7 +160,7 @@ void ToolConfiguration::init_default_presets_if_empty() {
             .smoothingFactor = 0.5f,
             .minimumSize = 0.05f,
             .pressureAffectsWidth = true,
-            .grainIntensity = 0.40f
+            .grainIntensity = 0.0f
         },
         BrushPreset{
             .name = "Marker",
@@ -175,7 +175,7 @@ void ToolConfiguration::init_default_presets_if_empty() {
             .smoothingFactor = 0.707f,
             .minimumSize = 0.5f,
             .pressureAffectsWidth = false,
-            .grainIntensity = 0.15f
+            .grainIntensity = 0.0f
         }
     };
     selectedPreset = 0;

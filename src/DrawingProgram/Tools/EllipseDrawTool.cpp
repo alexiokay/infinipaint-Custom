@@ -28,6 +28,8 @@
 #include "../../CanvasComponents/CanvasComponentContainer.hpp"
 
 #include "../../GUIStuff/ElementHelpers/RadioButtonHelpers.hpp"
+#include "../../GUIStuff/ElementHelpers/CheckBoxHelpers.hpp"
+#include "../../GUIStuff/ElementHelpers/ToolInspectorHelpers.hpp"
 #include "../../GUIStuff/ElementHelpers/TextLabelHelpers.hpp"
 
 EllipseDrawTool::EllipseDrawTool(DrawingProgram& initDrawP):
@@ -38,7 +40,7 @@ DrawingProgramToolType EllipseDrawTool::get_type() {
     return DrawingProgramToolType::ELLIPSE;
 }
 
-void EllipseDrawTool::gui_toolbox(Toolbar& t) {
+void EllipseDrawTool::gui_inspector() {
     using namespace GUIStuff;
     using namespace ElementHelpers;
 
@@ -46,33 +48,34 @@ void EllipseDrawTool::gui_toolbox(Toolbar& t) {
     auto& toolConfig = drawP.world.main.toolConfig;
     auto& fillStrokeMode = toolConfig.ellipseDraw.fillStrokeMode;
     gui.new_id("ellipse draw tool", [&] {
-        text_label_centered(gui, "Draw Ellipse");
-        radio_button_selector(gui, "fill type", &fillStrokeMode, {
-            {"Fill only", 0},
-            {"Outline only", 1},
-            {"Fill and Outline", 2}
+        tool_inspector(gui, "Ellipse / Circle", [&] {
+            inspector_section(gui, "GEOMETRY", [&] {
+                checkbox_boolean_field(gui, "perfect circle", "1:1 Circle (Constrain aspect ratio)", &toolConfig.ellipseDraw.perfectCircle);
+                checkbox_boolean_field(gui, "from center", "Draw from center (Start at click)", &toolConfig.ellipseDraw.fromCenter);
+                inspector_hint(gui, "Hold Shift for 1:1 circle, or Alt to draw from center.");
+            });
+            inspector_section(gui, "STYLE", [&] {
+                radio_button_selector(gui, "fill type", &fillStrokeMode, {
+                    {"Fill only", 0},
+                    {"Outline only", 1},
+                    {"Fill and Outline", 2}
+                });
+            });
+            if(fillStrokeMode == 1 || fillStrokeMode == 2) {
+                inspector_section(gui, "OUTLINE", [&] {
+                    toolConfig.relative_width_gui(drawP, "Outline Size");
+                });
+            }
         });
-        if(fillStrokeMode == 1 || fillStrokeMode == 2)
-            toolConfig.relative_width_gui(drawP, "Outline Size");
     });
 }
 
-void EllipseDrawTool::gui_phone_toolbox(PhoneDrawingProgramScreen& t) {
-    using namespace GUIStuff;
-    using namespace ElementHelpers;
+void EllipseDrawTool::gui_toolbox(Toolbar&) {
+    gui_inspector();
+}
 
-    auto& gui = drawP.world.main.g.gui;
-    auto& toolConfig = drawP.world.main.toolConfig;
-    auto& fillStrokeMode = toolConfig.ellipseDraw.fillStrokeMode;
-    gui.new_id("ellipse draw tool", [&] {
-        radio_button_selector(gui, "fill type", &fillStrokeMode, {
-            {"Fill only", 0},
-            {"Outline only", 1},
-            {"Fill and Outline", 2}
-        });
-        if(fillStrokeMode == 1 || fillStrokeMode == 2)
-            toolConfig.relative_width_gui(drawP, "Outline Size");
-    });
+void EllipseDrawTool::gui_phone_toolbox(PhoneDrawingProgramScreen&) {
+    gui_inspector();
 }
 
 void EllipseDrawTool::input_mouse_button_on_canvas_callback(const InputManager::MouseButtonCallbackArgs& button) {
@@ -90,7 +93,8 @@ void EllipseDrawTool::input_mouse_button_on_canvas_callback(const InputManager::
             CanvasComponentContainer* newContainer = new CanvasComponentContainer(drawP.world.netObjMan, CanvasComponentType::ELLIPSE);
             EllipseCanvasComponent& newEllipse = static_cast<EllipseCanvasComponent&>(newContainer->get_comp());
 
-            startAt = button.pos;
+            newContainer->coords = drawP.world.drawData.cam.c;
+            startAt = newContainer->coords.from_cam_space_to_this(drawP.world, button.pos);
             newEllipse.d.strokeColor = toolConfig.globalConf.foregroundColor;
             newEllipse.d.fillColor =   toolConfig.globalConf.backgroundColor;
             newEllipse.d.strokeWidth = width;
@@ -98,7 +102,6 @@ void EllipseDrawTool::input_mouse_button_on_canvas_callback(const InputManager::
             newEllipse.d.p2 = startAt;
             newEllipse.d.p2 = ensure_points_have_distance(newEllipse.d.p1, newEllipse.d.p2, MINIMUM_DISTANCE_BETWEEN_BOUNDS);
             newEllipse.d.fillStrokeMode = static_cast<uint8_t>(toolConfig.ellipseDraw.fillStrokeMode);
-            newContainer->coords = drawP.world.drawData.cam.c;
 
             objInfoBeingEdited = drawP.layerMan.add_component_to_layer_being_edited(newContainer);
         }
@@ -111,13 +114,33 @@ void EllipseDrawTool::input_mouse_motion_callback(const InputManager::MouseMotio
     if(objInfoBeingEdited) {
         NetworkingObjects::NetObjOwnerPtr<CanvasComponentContainer>& containerPtr = objInfoBeingEdited->obj;
         Vector2f newPos = containerPtr->coords.from_cam_space_to_this(drawP.world, motion.pos);
-        if(drawP.world.main.input.key(InputManager::KEY_GENERIC_LSHIFT).held) {
-            float height = std::fabs(startAt.y() - newPos.y());
-            newPos.x() = startAt.x() + (((newPos.x() - startAt.x()) < 0.0f ? -1.0f : 1.0f) * height);
-        }
+        auto& config = drawP.world.main.toolConfig.ellipseDraw;
+        bool constrain1to1 = config.perfectCircle || drawP.world.main.input.key(InputManager::KEY_GENERIC_LSHIFT).held;
+        bool fromCenter = config.fromCenter || drawP.world.main.input.key(InputManager::KEY_GENERIC_LALT).held;
+
         EllipseCanvasComponent& ellipse = static_cast<EllipseCanvasComponent&>(containerPtr->get_comp());
-        ellipse.d.p1 = cwise_vec_min(startAt, newPos);
-        ellipse.d.p2 = cwise_vec_max(startAt, newPos);
+        if(fromCenter) {
+            Vector2f offset = newPos - startAt;
+            float rx = std::fabs(offset.x());
+            float ry = std::fabs(offset.y());
+            if(constrain1to1) {
+                float r = std::max(rx, ry);
+                rx = ry = r;
+            }
+            ellipse.d.p1 = startAt - Vector2f(rx, ry);
+            ellipse.d.p2 = startAt + Vector2f(rx, ry);
+        } else {
+            if(constrain1to1) {
+                float dx = std::fabs(newPos.x() - startAt.x());
+                float dy = std::fabs(newPos.y() - startAt.y());
+                float side = std::max(dx, dy);
+                float signX = (newPos.x() >= startAt.x()) ? 1.0f : -1.0f;
+                float signY = (newPos.y() >= startAt.y()) ? 1.0f : -1.0f;
+                newPos = startAt + Vector2f(signX * side, signY * side);
+            }
+            ellipse.d.p1 = cwise_vec_min(startAt, newPos);
+            ellipse.d.p2 = cwise_vec_max(startAt, newPos);
+        }
         ellipse.d.p2 = ensure_points_have_distance(ellipse.d.p1, ellipse.d.p2, MINIMUM_DISTANCE_BETWEEN_BOUNDS);
         commitUpdate = true;
     }
