@@ -163,7 +163,7 @@ void BrushTool::commit_stroke() {
             if (containerPtr->objInfo != components->begin()) {
                 auto prevIt = std::prev(containerPtr->objInfo);
                 CanvasComponentContainer* prevContainer = prevIt->obj.get();
-                if (prevContainer && prevContainer->get_comp_type() == CanvasComponentType::MESH) {
+                if (prevContainer && prevContainer->get_comp().get_type() == CanvasComponentType::MESH) {
                     MeshCanvasComponent& prevMesh = static_cast<MeshCanvasComponent&>(prevContainer->get_comp());
                     if (prevMesh.d.color.x() == newMesh.d.color.x() &&
                         prevMesh.d.color.y() == newMesh.d.color.y() &&
@@ -187,15 +187,14 @@ void BrushTool::commit_stroke() {
                                     drawP.world.undo.push(std::make_unique<EditTransformCanvasComponentWorldUndoAction>(
                                         prevContainer->get_comp().get_data_copy(),
                                         prevContainer->coords,
-                                        drawP.world.undo.get_undoid_from_netid(prevContainer->get_net_id())
+                                        drawP.world.undo.get_undoid_from_netid(prevIt->obj.get_net_id())
                                     ));
                                     prevMesh.d.meshPath = unionResult.value();
                                     prevMesh.simplify_paths();
                                     prevContainer->normalize_object_coordinates();
-                                    prevContainer->calculate_world_bounds();
                                     prevContainer->commit_update(drawP);
                                     drawP.world.send_reliable_multi_command_to_all([&]() {
-                                        drawP.send_transforms_for({prevIt});
+                                        drawP.send_transforms_for({&(*prevIt)});
                                         prevContainer->send_comp_update(drawP, true);
                                     });
                                     components->erase(components, containerPtr->objInfo);
