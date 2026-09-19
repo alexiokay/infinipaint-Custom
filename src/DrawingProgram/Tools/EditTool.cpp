@@ -51,9 +51,12 @@ void EditTool::gui_toolbox(Toolbar& t) {
 
     if(objInfoBeingEdited)
         compEditTool->edit_gui(t);
+    else if(drawP.selection.is_something_selected())
+        drawP.selection.selection_gui(t);
     else {
         gui.new_id("edit tool", [&] {
             text_label_centered(gui, "Edit");
+            text_label(gui, "Click to select, double click to edit points.");
         });
     }
 }
@@ -66,9 +69,12 @@ void EditTool::gui_phone_toolbox(PhoneDrawingProgramScreen& t) {
 
     if(objInfoBeingEdited)
         compEditTool->gui_phone_toolbox(t);
+    else if(drawP.selection.is_something_selected())
+        drawP.selection.phone_selection_gui(t);
     else {
         gui.new_id("edit tool", [&] {
             text_label_centered(gui, "Double tap object to edit");
+            text_label(gui, "Tap to select, double tap to edit points.");
         });
     }
 }
@@ -284,18 +290,24 @@ void EditTool::tool_update() {
 Vector4f* EditTool::color_picker_color(Vector4f* oldColor) {
     if(objInfoBeingEdited)
         return compEditTool->color_picker_color(oldColor);
+    else if(drawP.selection.is_something_selected())
+        return drawP.selection.color_picker_color(oldColor);
     return nullptr;
 }
 
 bool EditTool::phone_gui_tool_specific_bottom_toolbar_exists() {
     if(objInfoBeingEdited)
         return compEditTool->phone_gui_tool_specific_bottom_toolbar_exists();
+    else if(drawP.selection.is_something_selected())
+        return true;
     return false;
 }
 
 void EditTool::phone_gui_tool_specific_bottom_toolbar(PhoneDrawingProgramScreen& t) {
     if(objInfoBeingEdited)
         return compEditTool->phone_gui_tool_specific_bottom_toolbar(t);
+    else if(drawP.selection.is_something_selected())
+        return drawP.selection.phone_selection_bottom_toolbar(t);
 }
 
 bool EditTool::prevent_undo_or_redo() {

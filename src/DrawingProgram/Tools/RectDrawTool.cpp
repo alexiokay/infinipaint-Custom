@@ -29,6 +29,7 @@
 #include "../../GUIStuff/ElementHelpers/ToolInspectorHelpers.hpp"
 #include "../../GUIStuff/ElementHelpers/TextLabelHelpers.hpp"
 #include "../../GUIStuff/ElementHelpers/NumberSliderHelpers.hpp"
+#include "../../GUIStuff/Elements/DropDown.hpp"
 
 RectDrawTool::RectDrawTool(DrawingProgram& initDrawP):
     DrawingProgramToolBase(initDrawP)
@@ -46,10 +47,36 @@ void RectDrawTool::gui_inspector() {
     auto& toolConfig = drawP.world.main.toolConfig;
     auto& fillStrokeMode = toolConfig.rectDraw.fillStrokeMode;
     auto& relativeRadiusWidth = toolConfig.rectDraw.relativeRadiusWidth;
+
+    if(toolConfig.rectDraw.aspectRatioMode < 0 || toolConfig.rectDraw.aspectRatioMode > 6)
+        toolConfig.rectDraw.aspectRatioMode = 0;
+    if(toolConfig.rectDraw.perfectSquare && toolConfig.rectDraw.aspectRatioMode == 0)
+        toolConfig.rectDraw.aspectRatioMode = 1;
+
     gui.new_id("rect draw tool", [&] {
         tool_inspector(gui, "Rectangle / Square", [&] {
             inspector_section(gui, "GEOMETRY", [&] {
-                checkbox_boolean_field(gui, "perfect square", "1:1 Square (Constrain aspect ratio)", &toolConfig.rectDraw.perfectSquare);
+                left_to_right_line_layout(gui, [&]() {
+                    text_label(gui, "Ratio:");
+                    gui.element<DropDown<int>>("aspect ratio select", &toolConfig.rectDraw.aspectRatioMode, std::vector<std::string>{
+                        "Free",
+                        "1:1 Square",
+                        "16:9",
+                        "9:16",
+                        "4:3",
+                        "3:2",
+                        "Custom"
+                    }, DropdownOptions{
+                        .onClick = [&] {
+                            toolConfig.rectDraw.perfectSquare = (toolConfig.rectDraw.aspectRatioMode == 1);
+                            gui.set_to_layout();
+                        }
+                    });
+                });
+                if(toolConfig.rectDraw.aspectRatioMode == 6) {
+                    slider_scalar_field(gui, "custom_aspect_x", "Ratio X", &toolConfig.rectDraw.customAspectX, 0.1f, 100.0f);
+                    slider_scalar_field(gui, "custom_aspect_y", "Ratio Y", &toolConfig.rectDraw.customAspectY, 0.1f, 100.0f);
+                }
                 checkbox_boolean_field(gui, "from center", "Draw from center (Start at click)", &toolConfig.rectDraw.fromCenter);
                 slider_scalar_field(gui, "relradiuswidth", "Corner Radius", &relativeRadiusWidth, 0.0f, 40.0f);
                 inspector_hint(gui, "Hold Shift for 1:1 square, or Alt to draw from center.");
@@ -119,28 +146,50 @@ void RectDrawTool::input_mouse_motion_callback(const InputManager::MouseMotionCa
         NetworkingObjects::NetObjOwnerPtr<CanvasComponentContainer>& containerPtr = objInfoBeingEdited->obj;
         Vector2f newPos = containerPtr->coords.from_cam_space_to_this(drawP.world, motion.pos);
         auto& config = drawP.world.main.toolConfig.rectDraw;
-        bool constrain1to1 = config.perfectSquare || drawP.world.main.input.key(InputManager::KEY_GENERIC_LSHIFT).held;
+        bool shiftHeld = drawP.world.main.input.key(InputManager::KEY_GENERIC_LSHIFT).held;
         bool fromCenter = config.fromCenter || drawP.world.main.input.key(InputManager::KEY_GENERIC_LALT).held;
+
+        float targetRatio = 0.0f;
+        if(shiftHeld || config.perfectSquare || config.aspectRatioMode == 1) {
+            targetRatio = 1.0f;
+        } else if(config.aspectRatioMode == 2) {
+            targetRatio = 16.0f / 9.0f;
+        } else if(config.aspectRatioMode == 3) {
+            targetRatio = 9.0f / 16.0f;
+        } else if(config.aspectRatioMode == 4) {
+            targetRatio = 4.0f / 3.0f;
+        } else if(config.aspectRatioMode == 5) {
+            targetRatio = 3.0f / 2.0f;
+        } else if(config.aspectRatioMode == 6) {
+            float cx = std::max(config.customAspectX, 0.001f);
+            float cy = std::max(config.customAspectY, 0.001f);
+            targetRatio = cx / cy;
+        }
 
         RectangleCanvasComponent& rectangle = static_cast<RectangleCanvasComponent&>(containerPtr->get_comp());
         if(fromCenter) {
             Vector2f offset = newPos - startAt;
             float rx = std::fabs(offset.x());
             float ry = std::fabs(offset.y());
-            if(constrain1to1) {
-                float r = std::max(rx, ry);
-                rx = ry = r;
+            if(targetRatio > 0.0f) {
+                if(rx / targetRatio > ry)
+                    ry = rx / targetRatio;
+                else
+                    rx = ry * targetRatio;
             }
             rectangle.d.p1 = startAt - Vector2f(rx, ry);
             rectangle.d.p2 = startAt + Vector2f(rx, ry);
         } else {
-            if(constrain1to1) {
-                float dx = std::fabs(newPos.x() - startAt.x());
-                float dy = std::fabs(newPos.y() - startAt.y());
-                float side = std::max(dx, dy);
+            float dx = std::fabs(newPos.x() - startAt.x());
+            float dy = std::fabs(newPos.y() - startAt.y());
+            if(targetRatio > 0.0f) {
+                if(dx / targetRatio > dy)
+                    dy = dx / targetRatio;
+                else
+                    dx = dy * targetRatio;
                 float signX = (newPos.x() >= startAt.x()) ? 1.0f : -1.0f;
                 float signY = (newPos.y() >= startAt.y()) ? 1.0f : -1.0f;
-                newPos = startAt + Vector2f(signX * side, signY * side);
+                newPos = startAt + Vector2f(signX * dx, signY * dy);
             }
             rectangle.d.p1 = cwise_vec_min(startAt, newPos);
             rectangle.d.p2 = cwise_vec_max(startAt, newPos);

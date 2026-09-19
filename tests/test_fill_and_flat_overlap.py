@@ -95,15 +95,45 @@ class FillAndFlatOverlapWiring(unittest.TestCase):
         config = source("src/DrawingProgram/ToolConfiguration.hpp")
         self.assertIn("bool perfectSquare = false;", config)
         self.assertIn("bool fromCenter = false;", config)
-        self.assertIn("NLOHMANN_DEFINE_TYPE_INTRUSIVE_WITH_DEFAULT(RectDrawToolConfig, relativeWidth, relativeRadiusWidth, fillStrokeMode, perfectSquare, fromCenter)", config)
+        self.assertIn("int aspectRatioMode = 0;", config)
+        self.assertIn("float customAspectX = 16.0f;", config)
+        self.assertIn("float customAspectY = 9.0f;", config)
+        self.assertIn("NLOHMANN_DEFINE_TYPE_INTRUSIVE_WITH_DEFAULT(RectDrawToolConfig, relativeWidth, relativeRadiusWidth, fillStrokeMode, perfectSquare, fromCenter, aspectRatioMode, customAspectX, customAspectY)", config)
 
         rect_cpp = source("src/DrawingProgram/Tools/RectDrawTool.cpp")
-        self.assertIn('"perfect square"', rect_cpp)
+        self.assertIn('"aspect ratio select"', rect_cpp)
+        self.assertIn('"1:1 Square"', rect_cpp)
+        self.assertIn('"16:9"', rect_cpp)
+        self.assertIn('"9:16"', rect_cpp)
+        self.assertIn('"4:3"', rect_cpp)
+        self.assertIn('"3:2"', rect_cpp)
+        self.assertIn('"Custom"', rect_cpp)
+        self.assertIn("custom_aspect_x", rect_cpp)
+        self.assertIn("custom_aspect_y", rect_cpp)
         self.assertIn('"from center"', rect_cpp)
-        self.assertIn("config.perfectSquare", rect_cpp)
         self.assertIn("config.fromCenter", rect_cpp)
         self.assertIn("KEY_GENERIC_LALT", rect_cpp)
         self.assertIn("KEY_GENERIC_LSHIFT", rect_cpp)
+        self.assertIn("targetRatio", rect_cpp)
+
+    def test_selection_export_resolution_multiplier(self):
+        sel_h = source("src/DrawingProgram/DrawingProgramSelection.hpp")
+        self.assertIn("int exportResolutionMultiplier = 2;", sel_h)
+
+        sel_cpp = source("src/DrawingProgram/DrawingProgramSelection.cpp")
+        self.assertIn('"export res"', sel_cpp)
+        self.assertIn('"1x"', sel_cpp)
+        self.assertIn('"2x HD"', sel_cpp)
+        self.assertIn('"4x Print"', sel_cpp)
+        self.assertIn("exportResolutionMultiplier", sel_cpp)
+        self.assertIn("mult = static_cast<float>(std::max(1, exportResolutionMultiplier));", sel_cpp)
+
+    def test_edit_tool_selection_actions(self):
+        edit_cpp = source("src/DrawingProgram/Tools/EditTool.cpp")
+        self.assertIn("drawP.selection.selection_gui(t);", edit_cpp)
+        self.assertIn("drawP.selection.phone_selection_gui(t);", edit_cpp)
+        self.assertIn("drawP.selection.color_picker_color(oldColor);", edit_cpp)
+        self.assertIn("drawP.selection.phone_selection_bottom_toolbar(t);", edit_cpp)
 
     def test_fill_tool_crash_safety_and_toolbar_null_checks(self):
         lasso_h = source("src/DrawingProgram/Tools/LassoFillTool.hpp")
@@ -122,4 +152,5 @@ class FillAndFlatOverlapWiring(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
 

@@ -52,7 +52,10 @@ class ToolConfiguration {
             int fillStrokeMode = 1;
             bool perfectSquare = false;
             bool fromCenter = false;
-            NLOHMANN_DEFINE_TYPE_INTRUSIVE_WITH_DEFAULT(RectDrawToolConfig, relativeWidth, relativeRadiusWidth, fillStrokeMode, perfectSquare, fromCenter)
+            int aspectRatioMode = 0;
+            float customAspectX = 16.0f;
+            float customAspectY = 9.0f;
+            NLOHMANN_DEFINE_TYPE_INTRUSIVE_WITH_DEFAULT(RectDrawToolConfig, relativeWidth, relativeRadiusWidth, fillStrokeMode, perfectSquare, fromCenter, aspectRatioMode, customAspectX, customAspectY)
         } rectDraw;
 
         struct EyeDropperToolConfig {

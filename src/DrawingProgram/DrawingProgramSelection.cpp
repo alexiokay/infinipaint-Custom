@@ -80,6 +80,14 @@ void DrawingProgramSelection::selection_gui(Toolbar& t) {
                 text_label(gui, "Stroke Color");
             });
             left_to_right_line_layout(gui, [&]() {
+                text_label(gui, "Export Res:");
+                radio_button_selector(gui, "export res", &exportResolutionMultiplier, {
+                    {"1x", 1},
+                    {"2x HD", 2},
+                    {"4x Print", 4}
+                });
+            });
+            left_to_right_line_layout(gui, [&]() {
                 text_button(gui, "export selection btn", "Export Image", {
                     .padX = 8,
                     .onClick = [&] {
@@ -109,6 +117,30 @@ void DrawingProgramSelection::phone_selection_gui(PhoneDrawingProgramScreen& t) 
             {"Layer being edited", DrawingProgramLayerManager::LayerSelector::LAYER_BEING_EDITED},
             {"All visible layers", DrawingProgramLayerManager::LayerSelector::ALL_VISIBLE_LAYERS}
         });
+        if(is_something_selected()) {
+            left_to_right_line_layout(gui, [&]() {
+                text_label(gui, "Export Res:");
+                radio_button_selector(gui, "phone export res", &exportResolutionMultiplier, {
+                    {"1x", 1},
+                    {"2x HD", 2},
+                    {"4x Print", 4}
+                });
+            });
+            left_to_right_line_layout(gui, [&]() {
+                text_button(gui, "phone export selection btn", "Export Image", {
+                    .padX = 8,
+                    .onClick = [&] {
+                        export_selection_screenshot();
+                    }
+                });
+                text_button(gui, "phone crop to screenshot btn", "Crop Frame", {
+                    .padX = 8,
+                    .onClick = [&] {
+                        crop_to_screenshot_tool();
+                    }
+                });
+            });
+        }
     });
 }
 
@@ -829,8 +861,9 @@ void DrawingProgramSelection::export_selection_screenshot() {
     float height = maxY - minY;
     if(width <= 0.0f || height <= 0.0f) return;
 
-    int pxWidth = static_cast<int>(std::clamp(width, 32.0f, 8192.0f));
-    int pxHeight = static_cast<int>(std::clamp(height, 32.0f, 8192.0f));
+    float mult = static_cast<float>(std::max(1, exportResolutionMultiplier));
+    int pxWidth = static_cast<int>(std::clamp(width * mult, 32.0f, 8192.0f));
+    int pxHeight = static_cast<int>(std::clamp(height * mult, 32.0f, 8192.0f));
 
     auto screenshotType = drawP.world.main.toolConfig.screenshot.selectedType;
     Screen::ExtensionFilter extFilter;
