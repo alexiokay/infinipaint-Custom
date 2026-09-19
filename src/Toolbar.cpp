@@ -1130,7 +1130,7 @@ void Toolbar::color_picker_window(const char* id, Vector4f** color, GUIStuff::El
             }
         }, LayoutElement::Callbacks{
             .onClick = [&, b, color](LayoutElement* l, const InputManager::MouseButtonCallbackArgs& button) {
-                if(!l->mouseHovering && !l->childMouseHovering && !b->mouseHovering && button.down) {
+                if(!l->mouseHovering && !l->childMouseHovering && (!b || !b->mouseHovering) && button.down) {
                     *color = nullptr;
                     main.g.gui.set_to_layout();
                 }

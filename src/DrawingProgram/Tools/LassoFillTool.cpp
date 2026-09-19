@@ -1,4 +1,4 @@
-﻿/*  
+/*  
  * InfiniPaint
  * Copyright (C) 2025-2026 Yousef Khadadeh
  *
@@ -79,10 +79,6 @@ bool LassoFillTool::prevent_undo_or_redo() {
     return controls.isFilling;
 }
 
-Vector4f* LassoFillTool::color_picker_color(Vector4f*) {
-    return &drawP.world.main.toolConfig.globalConf.foregroundColor;
-}
-
 void LassoFillTool::switch_tool(DrawingProgramToolType) {
     controls.isFilling = false;
     controls.points.clear();
@@ -106,27 +102,25 @@ void LassoFillTool::input_mouse_button_on_canvas_callback(const InputManager::Mo
                 pathBuilder.close();
                 SkPath fillPath = pathBuilder.detach();
 
-                auto simplified = Simplify(fillPath);
-                if(simplified.has_value() && !simplified->isEmpty()) {
-                    fillPath = *simplified;
+                SkRect bounds = fillPath.getBounds();
+                if(bounds.width() >= 4.0f && bounds.height() >= 4.0f) {
+                    CanvasComponentContainer* newContainer = new CanvasComponentContainer(drawP.world.netObjMan, CanvasComponentType::MESH);
+                    MeshCanvasComponent& newMesh = static_cast<MeshCanvasComponent&>(newContainer->get_comp());
+
+                    newMesh.d.color = drawP.world.main.toolConfig.globalConf.foregroundColor;
+                    newMesh.d.meshPath = fillPath;
+                    newContainer->coords = controls.coords;
+
+                    auto* objInfo = drawP.layerMan.add_component_to_layer_being_edited(newContainer);
+                    newContainer->get_comp().simplify_paths();
+                    newContainer->normalize_object_coordinates();
+                    newContainer->commit_update(drawP);
+                    drawP.world.send_reliable_multi_command_to_all([&]() {
+                        drawP.send_transforms_for({objInfo});
+                        newContainer->send_comp_update(drawP, true);
+                    });
+                    drawP.layerMan.add_undo_place_component(objInfo);
                 }
-
-                CanvasComponentContainer* newContainer = new CanvasComponentContainer(drawP.world.netObjMan, CanvasComponentType::MESH);
-                MeshCanvasComponent& newMesh = static_cast<MeshCanvasComponent&>(newContainer->get_comp());
-
-                newMesh.d.color = drawP.world.main.toolConfig.globalConf.foregroundColor;
-                newMesh.d.meshPath = fillPath;
-                newContainer->coords = controls.coords;
-                newContainer->get_comp().simplify_paths();
-                newContainer->normalize_object_coordinates();
-
-                auto* objInfo = drawP.layerMan.add_component_to_layer_being_edited(newContainer);
-                newContainer->commit_update(drawP);
-                drawP.world.send_reliable_multi_command_to_all([&]() {
-                    drawP.send_transforms_for({objInfo});
-                    newContainer->send_comp_update(drawP, true);
-                });
-                drawP.layerMan.add_undo_place_component(objInfo);
             }
             controls.points.clear();
             controls.isFilling = false;

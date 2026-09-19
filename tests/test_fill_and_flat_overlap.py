@@ -1,4 +1,4 @@
-﻿"""Tests for Fill Tool, Brush Flat Overlap, and Shape Geometry modes (1:1 & from-center)."""
+"""Tests for Fill Tool, Brush Flat Overlap, and Shape Geometry modes (1:1 & from-center)."""
 from pathlib import Path
 import unittest
 
@@ -105,5 +105,21 @@ class FillAndFlatOverlapWiring(unittest.TestCase):
         self.assertIn("KEY_GENERIC_LALT", rect_cpp)
         self.assertIn("KEY_GENERIC_LSHIFT", rect_cpp)
 
+    def test_fill_tool_crash_safety_and_toolbar_null_checks(self):
+        lasso_h = source("src/DrawingProgram/Tools/LassoFillTool.hpp")
+        self.assertNotIn("color_picker_color", lasso_h)
+
+        lasso_cpp = source("src/DrawingProgram/Tools/LassoFillTool.cpp")
+        self.assertNotIn("color_picker_color", lasso_cpp)
+        self.assertIn("bounds.width() >= 4.0f", lasso_cpp)
+
+        tb_h = source("src/Toolbar.hpp")
+        self.assertIn("colorLeftButton = nullptr;", tb_h)
+        self.assertIn("colorRightButton = nullptr;", tb_h)
+
+        tb_cpp = source("src/Toolbar.cpp")
+        self.assertIn("(!b || !b->mouseHovering)", tb_cpp)
+
 if __name__ == "__main__":
     unittest.main()
+

@@ -118,11 +118,11 @@ class Toolbar {
         void general_settings_inner_gui();
         void center_obstructing_window_gui(const char* id, Clay_SizingAxis x, Clay_SizingAxis y, const std::function<void()>& innerContent);
 
-        GUIStuff::Element* colorLeftButton; 
+        GUIStuff::Element* colorLeftButton = nullptr; 
         Vector4f* colorLeft = nullptr;
         ColorSelectorData colorLeftData;
 
-        GUIStuff::Element* colorRightButton; 
+        GUIStuff::Element* colorRightButton = nullptr; 
         Vector4f* colorRight = nullptr;
         ColorSelectorData colorRightData;
 
