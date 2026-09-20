@@ -66,7 +66,12 @@ class ToolConfiguration {
         struct LineDrawToolConfig {
             bool hasRoundCaps = true;
             float relativeWidth = 15.0f;
-            NLOHMANN_DEFINE_TYPE_INTRUSIVE_WITH_DEFAULT(LineDrawToolConfig, hasRoundCaps, relativeWidth)
+            int lineStyle = 0;
+            float dashLength = 3.0f;
+            float dashGap = 2.0f;
+            int arrowMode = 0;
+            bool snapAngles = false;
+            NLOHMANN_DEFINE_TYPE_INTRUSIVE_WITH_DEFAULT(LineDrawToolConfig, hasRoundCaps, relativeWidth, lineStyle, dashLength, dashGap, arrowMode, snapAngles)
         } lineDraw;
 
         struct ScreenshotToolConfig {

@@ -150,6 +150,36 @@ class FillAndFlatOverlapWiring(unittest.TestCase):
         tb_cpp = source("src/Toolbar.cpp")
         self.assertIn("(!b || !b->mouseHovering)", tb_cpp)
 
+    def test_line_tool_advanced_options(self):
+        config = source("src/DrawingProgram/ToolConfiguration.hpp")
+        self.assertIn("int lineStyle = 0;", config)
+        self.assertIn("float dashLength = 3.0f;", config)
+        self.assertIn("float dashGap = 2.0f;", config)
+        self.assertIn("int arrowMode = 0;", config)
+        self.assertIn("bool snapAngles = false;", config)
+        self.assertIn("NLOHMANN_DEFINE_TYPE_INTRUSIVE_WITH_DEFAULT(LineDrawToolConfig, hasRoundCaps, relativeWidth, lineStyle, dashLength, dashGap, arrowMode, snapAngles)", config)
+
+        line_h = source("src/DrawingProgram/Tools/LineDrawTool.hpp")
+        self.assertIn("void gui_inspector();", line_h)
+
+        line_cpp = source("src/DrawingProgram/Tools/LineDrawTool.cpp")
+        self.assertIn('"line pattern select"', line_cpp)
+        self.assertIn('"Solid"', line_cpp)
+        self.assertIn('"Dashed"', line_cpp)
+        self.assertIn('"Dotted (Circles)"', line_cpp)
+        self.assertIn('"Dash-Dot"', line_cpp)
+        self.assertIn('"Dash-Dot-Dot"', line_cpp)
+        self.assertIn('"line arrow select"', line_cpp)
+        self.assertIn('"End Arrow ->"', line_cpp)
+        self.assertIn('"Start Arrow <-"', line_cpp)
+        self.assertIn('"Both Ends <->"', line_cpp)
+        self.assertIn('"dashlength"', line_cpp)
+        self.assertIn('"dashgap"', line_cpp)
+        self.assertIn('"snapangles"', line_cpp)
+        self.assertIn("generate_line_path", line_cpp)
+        self.assertIn("add_capsule", line_cpp)
+        self.assertIn("add_arrow", line_cpp)
+
 if __name__ == "__main__":
     unittest.main()
 
