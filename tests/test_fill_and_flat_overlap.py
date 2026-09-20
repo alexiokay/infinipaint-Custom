@@ -177,7 +177,7 @@ class FillAndFlatOverlapWiring(unittest.TestCase):
         self.assertIn('"dashgap"', line_cpp)
         self.assertIn('"snapangles"', line_cpp)
         self.assertIn("generate_line_path", line_cpp)
-        self.assertIn("add_capsule", line_cpp)
+        self.assertIn("segment_to_skpath", line_cpp)
         self.assertIn("add_arrow", line_cpp)
 
 if __name__ == "__main__":

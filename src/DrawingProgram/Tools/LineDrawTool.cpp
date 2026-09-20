@@ -36,57 +36,28 @@
 
 namespace {
 
-static void add_capsule(SkPathBuilder& builder, const Vector2f& p1, const Vector2f& p2, float radius, const Vector2f& dir, const Vector2f& normal) {
-    Vector2f a1 = p1 + normal * radius;
-    Vector2f a2 = p1 - normal * radius;
-    Vector2f b1 = p2 + normal * radius;
-    Vector2f b2 = p2 - normal * radius;
-
-    float angleDeg = std::atan2(dir.y(), dir.x()) * 180.0f / std::numbers::pi_v<float>;
-    SkRect rectEnd = SkRect::MakeLTRB(p2.x() - radius, p2.y() - radius, p2.x() + radius, p2.y() + radius);
-    SkRect rectStart = SkRect::MakeLTRB(p1.x() - radius, p1.y() - radius, p1.x() + radius, p1.y() + radius);
-
-    builder.moveTo(a1.x(), a1.y());
-    builder.lineTo(b1.x(), b1.y());
-    builder.arcTo(rectEnd, angleDeg - 90.0f, 180.0f, false);
-    builder.lineTo(a2.x(), a2.y());
-    builder.arcTo(rectStart, angleDeg + 90.0f, 180.0f, false);
-    builder.close();
-}
-
-static void add_rectangle(SkPathBuilder& builder, const Vector2f& p1, const Vector2f& p2, float radius, const Vector2f& normal) {
-    Vector2f a1 = p1 + normal * radius;
-    Vector2f a2 = p1 - normal * radius;
-    Vector2f b1 = p2 + normal * radius;
-    Vector2f b2 = p2 - normal * radius;
-
-    builder.moveTo(a1.x(), a1.y());
-    builder.lineTo(b1.x(), b1.y());
-    builder.lineTo(b2.x(), b2.y());
-    builder.lineTo(a2.x(), a2.y());
-    builder.close();
-}
-
-static void add_segment(SkPathBuilder& builder, const Vector2f& p1, const Vector2f& p2, float radius, const Vector2f& dir, const Vector2f& normal, bool hasRoundCaps) {
-    if((p2 - p1).squaredNorm() < 0.0001f) {
+static SkPath segment_to_skpath(const Vector2f& p1, const Vector2f& p2, float width, bool hasRoundCaps) {
+    if((p2 - p1).squaredNorm() < 0.25f) {
+        SkPath b;
         if(hasRoundCaps)
-            builder.addCircle(p1.x(), p1.y(), radius);
-        return;
+            b.addCircle(p1.x(), p1.y(), std::max(width * 0.5f, 0.5f));
+        return b;
     }
-    if(hasRoundCaps)
-        add_capsule(builder, p1, p2, radius, dir, normal);
-    else
-        add_rectangle(builder, p1, p2, radius, normal);
+    std::vector<BrushComponentCode::BrushPoint> pts = {
+        {p1, width},
+        {p2, width}
+    };
+    return BrushComponentCode::brush_stroke_to_skpath(pts, hasRoundCaps);
 }
 
-static void add_arrow(SkPathBuilder& builder, const Vector2f& tip, const Vector2f& dir, const Vector2f& normal, float arrowLen, float arrowWidth) {
+static void add_arrow(SkPath& path, const Vector2f& tip, const Vector2f& dir, const Vector2f& normal, float arrowLen, float arrowWidth) {
     Vector2f base = tip - dir * arrowLen;
     Vector2f w1 = base + normal * (arrowWidth * 0.5f);
     Vector2f w2 = base - normal * (arrowWidth * 0.5f);
-    builder.moveTo(tip.x(), tip.y());
-    builder.lineTo(w1.x(), w1.y());
-    builder.lineTo(w2.x(), w2.y());
-    builder.close();
+    path.moveTo(tip.x(), tip.y());
+    path.lineTo(w1.x(), w1.y());
+    path.lineTo(w2.x(), w2.y());
+    path.close();
 }
 
 static SkPath generate_line_path(const Vector2f& start, const Vector2f& end, float strokeWidth, const ToolConfiguration::LineDrawToolConfig& config) {
@@ -94,15 +65,20 @@ static SkPath generate_line_path(const Vector2f& start, const Vector2f& end, flo
     float totalLength = diff.norm();
     float radius = std::max(strokeWidth * 0.5f, 0.5f);
     if(totalLength < 0.5f) {
-        SkPathBuilder b;
-        b.addCircle(start.x(), start.y(), radius);
-        return b.detach();
+        SkPath b;
+        if(config.hasRoundCaps)
+            b.addCircle(start.x(), start.y(), radius);
+        return b;
+    }
+
+    if(config.lineStyle == 0 && config.arrowMode == 0) {
+        return segment_to_skpath(start, end, strokeWidth, config.hasRoundCaps);
     }
 
     Vector2f dir = diff / totalLength;
     Vector2f normal(-dir.y(), dir.x());
 
-    SkPathBuilder builder;
+    SkPath path;
 
     float arrowLen = std::min(strokeWidth * 3.5f, totalLength * 0.45f);
     float arrowWidth = std::max(strokeWidth * 2.8f, strokeWidth + 2.0f);
@@ -111,34 +87,35 @@ static SkPath generate_line_path(const Vector2f& start, const Vector2f& end, flo
     Vector2f effectiveEnd = end;
 
     if(config.arrowMode == 2 || config.arrowMode == 3) {
-        add_arrow(builder, start, -dir, normal, arrowLen, arrowWidth);
+        add_arrow(path, start, -dir, normal, arrowLen, arrowWidth);
         effectiveStart = start + dir * (arrowLen * 0.7f);
     }
 
     if(config.arrowMode == 1 || config.arrowMode == 3) {
-        add_arrow(builder, end, dir, normal, arrowLen, arrowWidth);
+        add_arrow(path, end, dir, normal, arrowLen, arrowWidth);
         effectiveEnd = end - dir * (arrowLen * 0.7f);
     }
 
     Vector2f bodyDiff = effectiveEnd - effectiveStart;
     float bodyLength = bodyDiff.dot(dir);
-    if(bodyLength <= 0.0f)
-        return builder.detach();
+    if(bodyLength <= 0.5f)
+        return path;
 
     int style = config.lineStyle;
     float dashLen = std::max(config.dashLength, 0.5f) * strokeWidth;
     float gapLen = std::max(config.dashGap, 0.5f) * strokeWidth;
 
     if(style == 0) { // Solid
-        add_segment(builder, effectiveStart, effectiveEnd, radius, dir, normal, config.hasRoundCaps);
+        path.addPath(segment_to_skpath(effectiveStart, effectiveEnd, strokeWidth, config.hasRoundCaps));
     }
     else if(style == 1) { // Dashed
         float period = dashLen + gapLen;
         for(float t = 0.0f; t < bodyLength; t += period) {
             float tEnd = std::min(t + dashLen, bodyLength);
+            if(tEnd - t < 0.5f) continue;
             Vector2f p1 = effectiveStart + dir * t;
             Vector2f p2 = effectiveStart + dir * tEnd;
-            add_segment(builder, p1, p2, radius, dir, normal, config.hasRoundCaps);
+            path.addPath(segment_to_skpath(p1, p2, strokeWidth, config.hasRoundCaps));
         }
     }
     else if(style == 2) { // Dotted (Circles)
@@ -147,7 +124,7 @@ static SkPath generate_line_path(const Vector2f& start, const Vector2f& end, flo
         float step = bodyLength / static_cast<float>(numDots - 1);
         for(int i = 0; i < numDots; ++i) {
             Vector2f center = effectiveStart + dir * (i * step);
-            builder.addCircle(center.x(), center.y(), radius);
+            path.addCircle(center.x(), center.y(), radius);
         }
     }
     else if(style == 3) { // Dash-Dot
@@ -155,14 +132,16 @@ static SkPath generate_line_path(const Vector2f& start, const Vector2f& end, flo
         float cycleLen = dashLen + gapLen + dotDiameter + gapLen;
         for(float t = 0.0f; t < bodyLength; t += cycleLen) {
             float dashEnd = std::min(t + dashLen, bodyLength);
-            Vector2f d1 = effectiveStart + dir * t;
-            Vector2f d2 = effectiveStart + dir * dashEnd;
-            add_segment(builder, d1, d2, radius, dir, normal, config.hasRoundCaps);
+            if(dashEnd - t >= 0.5f) {
+                Vector2f d1 = effectiveStart + dir * t;
+                Vector2f d2 = effectiveStart + dir * dashEnd;
+                path.addPath(segment_to_skpath(d1, d2, strokeWidth, config.hasRoundCaps));
+            }
 
             float dotCenterT = t + dashLen + gapLen + radius;
             if(dotCenterT <= bodyLength) {
                 Vector2f dotCenter = effectiveStart + dir * dotCenterT;
-                builder.addCircle(dotCenter.x(), dotCenter.y(), radius);
+                path.addCircle(dotCenter.x(), dotCenter.y(), radius);
             }
         }
     }
@@ -171,25 +150,27 @@ static SkPath generate_line_path(const Vector2f& start, const Vector2f& end, flo
         float cycleLen = dashLen + gapLen + dotDiameter + gapLen + dotDiameter + gapLen;
         for(float t = 0.0f; t < bodyLength; t += cycleLen) {
             float dashEnd = std::min(t + dashLen, bodyLength);
-            Vector2f d1 = effectiveStart + dir * t;
-            Vector2f d2 = effectiveStart + dir * dashEnd;
-            add_segment(builder, d1, d2, radius, dir, normal, config.hasRoundCaps);
+            if(dashEnd - t >= 0.5f) {
+                Vector2f d1 = effectiveStart + dir * t;
+                Vector2f d2 = effectiveStart + dir * dashEnd;
+                path.addPath(segment_to_skpath(d1, d2, strokeWidth, config.hasRoundCaps));
+            }
 
             float dot1CenterT = t + dashLen + gapLen + radius;
             if(dot1CenterT <= bodyLength) {
                 Vector2f dot1Center = effectiveStart + dir * dot1CenterT;
-                builder.addCircle(dot1Center.x(), dot1Center.y(), radius);
+                path.addCircle(dot1Center.x(), dot1Center.y(), radius);
             }
 
             float dot2CenterT = t + dashLen + gapLen + dotDiameter + gapLen + radius;
             if(dot2CenterT <= bodyLength) {
                 Vector2f dot2Center = effectiveStart + dir * dot2CenterT;
-                builder.addCircle(dot2Center.x(), dot2Center.y(), radius);
+                path.addCircle(dot2Center.x(), dot2Center.y(), radius);
             }
         }
     }
 
-    return builder.detach();
+    return path;
 }
 
 } // namespace
@@ -312,8 +293,10 @@ void LineDrawTool::input_mouse_button_on_canvas_callback(const InputManager::Mou
             newMesh.d.color = toolConfig.globalConf.foregroundColor;
             newMeshContainer->coords = drawP.world.drawData.cam.c;
 
+            Vector2f startAt = newMeshContainer->coords.from_cam_space_to_this(drawP.world, button.pos);
+
             BrushComponentCode::BrushPoint p;
-            p.pos = drawP.world.main.input.mouse.pos;
+            p.pos = startAt;
             p.width = width;
             brushPoints.emplace_back(p);
             p.pos = ensure_points_have_distance(p.pos, p.pos, 1.0f);
