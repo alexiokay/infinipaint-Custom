@@ -33,6 +33,7 @@
 #include "../../GUIStuff/ElementHelpers/LayoutHelpers.hpp"
 #include "../../GUIStuff/ElementHelpers/NumberSliderHelpers.hpp"
 #include "../../GUIStuff/Elements/DropDown.hpp"
+#include <include/core/SkPathBuilder.h>
 #include <include/pathops/SkPathOps.h>
 
 namespace {
@@ -131,13 +132,14 @@ static SkPath generate_line_path(const Vector2f& start, const Vector2f& end, flo
     bool hasStartArrow = (config.arrowMode == 2 || config.arrowMode == 3);
     bool hasEndArrow = (config.arrowMode == 1 || config.arrowMode == 3);
 
-    SkPath arrowsPath;
+    SkPathBuilder arrowsBuilder;
     if(hasStartArrow) {
-        arrowsPath.addPath(create_arrow_path(start, -dir, normal, arrowLen, arrowWidth));
+        arrowsBuilder.addPath(create_arrow_path(start, -dir, normal, arrowLen, arrowWidth));
     }
     if(hasEndArrow) {
-        arrowsPath.addPath(create_arrow_path(end, dir, normal, arrowLen, arrowWidth));
+        arrowsBuilder.addPath(create_arrow_path(end, dir, normal, arrowLen, arrowWidth));
     }
+    SkPath arrowsPath = arrowsBuilder.detach();
 
     // For solid line: shaft penetrates slightly into arrow base and unions with Op for 100% seamless junction
     // For non-solid lines: pattern runs between arrow bases without overlapping
@@ -153,14 +155,14 @@ static SkPath generate_line_path(const Vector2f& start, const Vector2f& end, flo
     Vector2f bodyDiff = effectiveEnd - effectiveStart;
     float bodyLength = bodyDiff.dot(dir);
 
-    SkPath bodyPath;
+    SkPathBuilder bodyBuilder;
     if(bodyLength > 0.5f) {
         int style = config.lineStyle;
         float dashLen = std::max(config.dashLength, 0.5f) * strokeWidth;
         float gapLen = std::max(config.dashGap, 0.5f) * strokeWidth;
 
         if(style == 0) { // Solid
-            bodyPath = create_segment_path(effectiveStart, effectiveEnd, strokeWidth, roundStart, roundEnd);
+            bodyBuilder.addPath(create_segment_path(effectiveStart, effectiveEnd, strokeWidth, roundStart, roundEnd));
         }
         else if(style == 1) { // Dashed
             float period = dashLen + gapLen;
@@ -169,7 +171,7 @@ static SkPath generate_line_path(const Vector2f& start, const Vector2f& end, flo
                 if(tEnd - t < 0.5f) continue;
                 Vector2f p1 = effectiveStart + dir * t;
                 Vector2f p2 = effectiveStart + dir * tEnd;
-                bodyPath.addPath(create_segment_path(p1, p2, strokeWidth, config.hasRoundCaps, config.hasRoundCaps));
+                bodyBuilder.addPath(create_segment_path(p1, p2, strokeWidth, config.hasRoundCaps, config.hasRoundCaps));
             }
         }
         else if(style == 2) { // Dotted (Circles)
@@ -178,7 +180,7 @@ static SkPath generate_line_path(const Vector2f& start, const Vector2f& end, flo
             float step = bodyLength / static_cast<float>(numDots - 1);
             for(int i = 0; i < numDots; ++i) {
                 Vector2f center = effectiveStart + dir * (i * step);
-                bodyPath.addCircle(center.x(), center.y(), radius);
+                bodyBuilder.addCircle(center.x(), center.y(), radius);
             }
         }
         else if(style == 3) { // Dash-Dot
@@ -189,13 +191,13 @@ static SkPath generate_line_path(const Vector2f& start, const Vector2f& end, flo
                 if(dashEnd - t >= 0.5f) {
                     Vector2f d1 = effectiveStart + dir * t;
                     Vector2f d2 = effectiveStart + dir * dashEnd;
-                    bodyPath.addPath(create_segment_path(d1, d2, strokeWidth, config.hasRoundCaps, config.hasRoundCaps));
+                    bodyBuilder.addPath(create_segment_path(d1, d2, strokeWidth, config.hasRoundCaps, config.hasRoundCaps));
                 }
 
                 float dotCenterT = t + dashLen + gapLen + radius;
                 if(dotCenterT <= bodyLength) {
                     Vector2f dotCenter = effectiveStart + dir * dotCenterT;
-                    bodyPath.addCircle(dotCenter.x(), dotCenter.y(), radius);
+                    bodyBuilder.addCircle(dotCenter.x(), dotCenter.y(), radius);
                 }
             }
         }
@@ -207,23 +209,24 @@ static SkPath generate_line_path(const Vector2f& start, const Vector2f& end, flo
                 if(dashEnd - t >= 0.5f) {
                     Vector2f d1 = effectiveStart + dir * t;
                     Vector2f d2 = effectiveStart + dir * dashEnd;
-                    bodyPath.addPath(create_segment_path(d1, d2, strokeWidth, config.hasRoundCaps, config.hasRoundCaps));
+                    bodyBuilder.addPath(create_segment_path(d1, d2, strokeWidth, config.hasRoundCaps, config.hasRoundCaps));
                 }
 
                 float dot1CenterT = t + dashLen + gapLen + radius;
                 if(dot1CenterT <= bodyLength) {
                     Vector2f dot1Center = effectiveStart + dir * dot1CenterT;
-                    bodyPath.addCircle(dot1Center.x(), dot1Center.y(), radius);
+                    bodyBuilder.addCircle(dot1Center.x(), dot1Center.y(), radius);
                 }
 
                 float dot2CenterT = t + dashLen + gapLen + dotDiameter + gapLen + radius;
                 if(dot2CenterT <= bodyLength) {
                     Vector2f dot2Center = effectiveStart + dir * dot2CenterT;
-                    bodyPath.addCircle(dot2Center.x(), dot2Center.y(), radius);
+                    bodyBuilder.addCircle(dot2Center.x(), dot2Center.y(), radius);
                 }
             }
         }
     }
+    SkPath bodyPath = bodyBuilder.detach();
 
     if(arrowsPath.isEmpty()) {
         return bodyPath;
@@ -238,8 +241,10 @@ static SkPath generate_line_path(const Vector2f& start, const Vector2f& end, flo
     }
 
     // Safe fallback with matching positive winding
-    bodyPath.addPath(arrowsPath);
-    return bodyPath;
+    SkPathBuilder fallback;
+    fallback.addPath(bodyPath);
+    fallback.addPath(arrowsPath);
+    return fallback.detach();
 }
 
 } // namespace
