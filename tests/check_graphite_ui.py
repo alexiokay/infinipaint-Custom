@@ -16,6 +16,21 @@ def luminance(rgb):
 
 
 class GraphiteUI(unittest.TestCase):
+    def test_current_upstream_input_contract(self):
+        panel = source("src/DrawingProgram/DrawingProgram.cpp")
+        self.assertIn("pointerDown == PointerDownState::MOUSE_LEFT", panel)
+        self.assertIn("button.penId != controls.leftPress.penId", panel)
+        self.assertIn("f.action.fingerID == toolPanelDragFinger", panel)
+        self.assertIn("f.fingers.size() > 1", panel)
+        for path in ("src/DrawingProgram/DrawingProgram.cpp", "src/GUIStuff/Elements/NumberSlider.hpp", "src/GUIStuff/Elements/ScrollArea.cpp"):
+            text = source(path)
+            for obsolete in ("FingerTouchCallbackArgs", "FingerMotionCallbackArgs", "input_finger_motion_callback", "controls.leftClickHeld", "controls.middleClickHeld", "gui.cursor_obstructed"):
+                self.assertNotIn(obsolete, text)
+        fill = source("src/DrawingProgram/Tools/LassoFillTool.cpp")
+        cancel = fill.split("void LassoFillTool::cancel_finger_touch_callback", 1)[1].split("\nvoid ", 1)[0]
+        self.assertIn("controls.contact.cancel()", cancel)
+        self.assertIn("controls.points.clear()", cancel)
+
     def test_default_palette_contrast(self):
         text = source("src/GUIStuff/Elements/GUIStuffHelpers.cpp")
         colors = {}

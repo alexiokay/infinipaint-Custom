@@ -850,17 +850,17 @@ void DrawingProgram::tool_options_gui(Toolbar& t) {
                     }
                     toolPanelDragging = false;
                 } else if (toolPanelDragging && f.action.type == FingerInput::ActionType::MOVE && f.action.fingerID == toolPanelDragFinger) {
-                if ((f.action.pos - toolPanelDragStart).norm() > 6.0f) {
+                    if ((f.action.pos - toolPanelDragStart).norm() > 6.0f) {
+                        toolPanelDragMoved = true;
+                    }
+                    if (toolPanelDragMoved) {
+                        const auto p = toolPanelStartPosition + f.action.pos - toolPanelDragStart;
+                        auto& prefs = world.main.toolConfig.toolPanel;
+                        prefs.x = UIControlGeometry::panelFraction(available.x(), p.x());
+                        prefs.y = UIControlGeometry::panelFraction(anchorHeight, std::clamp(p.y(), 0.0f, available.y()));
+                        world.main.g.gui.set_to_layout();
+                    }
 
-                    toolPanelDragMoved = true;
-                }
-                if (toolPanelDragMoved) {
-                    const auto p = toolPanelStartPosition + f.action.pos - toolPanelDragStart;
-                    auto& prefs = world.main.toolConfig.toolPanel;
-                    prefs.x = UIControlGeometry::panelFraction(available.x(), p.x());
-                    prefs.y = UIControlGeometry::panelFraction(anchorHeight, std::clamp(p.y(), 0.0f, available.y()));
-                    world.main.g.gui.set_to_layout();
-                }
                 }
             }
         };

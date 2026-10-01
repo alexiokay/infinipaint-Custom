@@ -208,61 +208,61 @@ template <typename T> class NumberSlider : public Element {
                 return;
             }
             if (touch.action.type == FingerInput::ActionType::DOWN || touch.action.type == FingerInput::ActionType::UP) {
-            if(touch.action.type == FingerInput::ActionType::DOWN) {
-                touchStartPos = touch.action.pos;
-                if(data) touchInitialVal = *data;
-                touchScrollingAway = false;
-                touchIsDragging = false;
-                touchIsInteracting = mouseHovering;
-            } else {
-                if(touchIsDragging) {
-                    dd.isTouchHeld = false;
+                if(touch.action.type == FingerInput::ActionType::DOWN) {
+                    touchStartPos = touch.action.pos;
+                    if(data) touchInitialVal = *data;
+                    touchScrollingAway = false;
                     touchIsDragging = false;
-                    touchIsInteracting = false;
-                    gui.set_post_callback_func([&] {
-                        if(config.onRelease) config.onRelease();
-                    });
-                    gui.set_to_layout();
-                } else if(touchIsInteracting && !touchScrollingAway) {
-                    if((touch.action.pos - touchStartPos).norm() <= 7.0f && boundingBox.has_value()) {
-                        update_slider_pos(touch.action.pos, true);
+                    touchIsInteracting = mouseHovering;
+                } else {
+                    if(touchIsDragging) {
+                        dd.isTouchHeld = false;
+                        touchIsDragging = false;
+                        touchIsInteracting = false;
                         gui.set_post_callback_func([&] {
                             if(config.onRelease) config.onRelease();
                         });
+                        gui.set_to_layout();
+                    } else if(touchIsInteracting && !touchScrollingAway) {
+                        if((touch.action.pos - touchStartPos).norm() <= 7.0f && boundingBox.has_value()) {
+                            update_slider_pos(touch.action.pos, true);
+                            gui.set_post_callback_func([&] {
+                                if(config.onRelease) config.onRelease();
+                            });
+                        }
+                        dd.isTouchHeld = false;
+                        touchIsInteracting = false;
+                        gui.set_to_layout();
                     }
-                    dd.isTouchHeld = false;
-                    touchIsInteracting = false;
-                    gui.set_to_layout();
+                    touchScrollingAway = false;
                 }
-                touchScrollingAway = false;
-            }
             } else if (touch.action.type == FingerInput::ActionType::MOVE) {
-            if(!touchIsInteracting || touchScrollingAway || !boundingBox.has_value())
-                return;
-
-            Vector2f diff = touch.action.pos - touchStartPos;
-            float dx = std::abs(diff.x());
-            float dy = std::abs(diff.y());
-
-            if(!touchIsDragging) {
-                if(dy > 7.0f && dy > dx) {
-                    touchScrollingAway = true;
-                    touchIsInteracting = false;
-                    dd.isTouchHeld = false;
-                    if(data) { *data = touchInitialVal; dd.val = touchInitialVal; }
-                    gui.set_to_layout();
+                if(!touchIsInteracting || touchScrollingAway || !boundingBox.has_value())
                     return;
+
+                Vector2f diff = touch.action.pos - touchStartPos;
+                float dx = std::abs(diff.x());
+                float dy = std::abs(diff.y());
+
+                if(!touchIsDragging) {
+                    if(dy > 7.0f && dy > dx) {
+                        touchScrollingAway = true;
+                        touchIsInteracting = false;
+                        dd.isTouchHeld = false;
+                        if(data) { *data = touchInitialVal; dd.val = touchInitialVal; }
+                        gui.set_to_layout();
+                        return;
+                    }
+                    if(dx > 5.0f && dx >= dy) {
+                        touchIsDragging = true;
+                        dd.isTouchHeld = true;
+                        update_slider_pos(touch.action.pos, true);
+                        gui.set_to_layout();
+                        return;
+                    }
+                } else {
+                    update_slider_pos(touch.action.pos, false);
                 }
-                if(dx > 5.0f && dx >= dy) {
-                    touchIsDragging = true;
-                    dd.isTouchHeld = true;
-                    update_slider_pos(touch.action.pos, true);
-                    gui.set_to_layout();
-                    return;
-                }
-            } else {
-                update_slider_pos(touch.action.pos, false);
-            }
             }
         }
 
