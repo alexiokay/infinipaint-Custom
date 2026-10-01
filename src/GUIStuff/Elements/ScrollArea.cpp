@@ -460,57 +460,55 @@ void ScrollArea::input_mouse_motion_callback(const InputManager::MouseMotionCall
 void ScrollArea::input_finger_touch_callback(const FingerInput::TouchCallbackArgs& touch) {
     if (touch.action.type == FingerInput::ActionType::DOWN || touch.action.type == FingerInput::ActionType::UP) {
 
-    bool oldScrollAreaHeld = scrollAreaHeld;
-    scrollAreaHeld = mouseHovering && (touch.action.type == FingerInput::ActionType::DOWN);
-    if(scrollAreaHeld) {
-        scrollAreaMotionMax = scrollAreaMotion = {0.0f, 0.0f};
-        touchScrollStartPos = touch.action.pos;
-        touchScrollMoved = false;
-    }
-    else if(oldScrollAreaHeld) {
-        if(touchScrollMoved) {
-            scrollAreaMotion = scrollAreaMotionMax;
-            if(std::fabs(scrollAreaMotion.x()) < SCROLL_MINIMUM_MOTION_TO_START_MOVE)
-                scrollAreaMotion.x() = 0.0f;
-            if(std::fabs(scrollAreaMotion.y()) < SCROLL_MINIMUM_MOTION_TO_START_MOVE)
-                scrollAreaMotion.y() = 0.0f;
-        } else {
-            scrollAreaMotion = scrollAreaMotionMax = {0.0f, 0.0f};
+        bool oldScrollAreaHeld = scrollAreaHeld;
+        scrollAreaHeld = mouseHovering && (touch.action.type == FingerInput::ActionType::DOWN);
+        if(scrollAreaHeld) {
+            scrollAreaMotionMax = scrollAreaMotion = {0.0f, 0.0f};
+            touchScrollStartPos = touch.action.pos;
+            touchScrollMoved = false;
         }
-        touchScrollMoved = false;
-    }
-
+        else if(oldScrollAreaHeld) {
+            if(touchScrollMoved) {
+                scrollAreaMotion = scrollAreaMotionMax;
+                if(std::fabs(scrollAreaMotion.x()) < SCROLL_MINIMUM_MOTION_TO_START_MOVE)
+                    scrollAreaMotion.x() = 0.0f;
+                if(std::fabs(scrollAreaMotion.y()) < SCROLL_MINIMUM_MOTION_TO_START_MOVE)
+                    scrollAreaMotion.y() = 0.0f;
+            } else {
+                scrollAreaMotion = scrollAreaMotionMax = {0.0f, 0.0f};
+            }
+            touchScrollMoved = false;
+        }
     } else if (touch.action.type == FingerInput::ActionType::MOVE) {
 
-    if(scrollAreaHeld) {
-        if(!touchScrollMoved) {
-            Vector2f diff = touch.action.pos - touchScrollStartPos;
-            if(opts.scrollVertical && !opts.scrollHorizontal) {
-                if(std::abs(diff.y()) > 8.0f && std::abs(diff.y()) >= std::abs(diff.x()))
+        if(scrollAreaHeld) {
+            if(!touchScrollMoved) {
+                Vector2f diff = touch.action.pos - touchScrollStartPos;
+                if(opts.scrollVertical && !opts.scrollHorizontal) {
+                    if(std::abs(diff.y()) > 8.0f && std::abs(diff.y()) >= std::abs(diff.x()))
+                        touchScrollMoved = true;
+                } else if(opts.scrollHorizontal && !opts.scrollVertical) {
+                    if(std::abs(diff.x()) > 8.0f && std::abs(diff.x()) >= std::abs(diff.y()))
+                        touchScrollMoved = true;
+                } else if(diff.norm() > 8.0f) {
                     touchScrollMoved = true;
-            } else if(opts.scrollHorizontal && !opts.scrollVertical) {
-                if(std::abs(diff.x()) > 8.0f && std::abs(diff.x()) >= std::abs(diff.y()))
-                    touchScrollMoved = true;
-            } else if(diff.norm() > 8.0f) {
-                touchScrollMoved = true;
+                }
+            }
+            if(touchScrollMoved) {
+                scrollAreaMotion = {opts.scrollHorizontal ? touch.action.motion.x() : 0.0f, opts.scrollVertical ? touch.action.motion.y() : 0.0f};
+                if(std::fabs(scrollAreaMotion.x()) > std::fabs(scrollAreaMotionMax.x()))
+                    scrollAreaMotionMax.x() = scrollAreaMotion.x();
+                if(std::fabs(scrollAreaMotion.y()) > std::fabs(scrollAreaMotionMax.y()))
+                    scrollAreaMotionMax.y() = scrollAreaMotion.y();
+
+                Vector2f oldScrollOffset = scrollOffset;
+                scrollOffset.x() += scrollAreaMotion.x();
+                scrollOffset.y() += scrollAreaMotion.y();
+                clamp_scroll();
+                if(oldScrollOffset != scrollOffset)
+                    gui.set_to_layout();
             }
         }
-        if(touchScrollMoved) {
-            scrollAreaMotion = {opts.scrollHorizontal ? touch.action.motion.x() : 0.0f, opts.scrollVertical ? touch.action.motion.y() : 0.0f};
-            if(std::fabs(scrollAreaMotion.x()) > std::fabs(scrollAreaMotionMax.x()))
-                scrollAreaMotionMax.x() = scrollAreaMotion.x();
-            if(std::fabs(scrollAreaMotion.y()) > std::fabs(scrollAreaMotionMax.y()))
-                scrollAreaMotionMax.y() = scrollAreaMotion.y();
-
-            Vector2f oldScrollOffset = scrollOffset;
-            scrollOffset.x() += scrollAreaMotion.x();
-            scrollOffset.y() += scrollAreaMotion.y();
-            clamp_scroll();
-            if(oldScrollOffset != scrollOffset)
-                gui.set_to_layout();
-        }
-    }
-
     }
 }
 
