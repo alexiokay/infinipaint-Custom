@@ -40,101 +40,8 @@
 #include <CDT/include/CDT.h>
 #include <clipper2/clipper.h>
 #include <Helpers/Logger.hpp>
-#include <include/effects/SkRuntimeEffect.h>
 
-namespace {
-static const char* grainSkSl = R"(
-    uniform float4 strokeColor;
-    uniform float grainIntensity;
-    uniform float grainScale;
-
-    float hash21(float2 p) {
-        p = fract(p * float2(234.34, 435.345));
-        p += dot(p, p + 34.23);
-        return fract(p.x * p.y);
-    }
-
-    half4 main(float2 fragCoord) {
-        float n1 = hash21(fragCoord * grainScale);
-        float n2 = hash21(fragCoord * grainScale * 0.5 + float2(17.1, 31.7));
-        float tooth = n1 * 0.7 + n2 * 0.3;
-        float factor = mix(1.0, tooth * 1.5, grainIntensity);
-        factor = clamp(factor, 0.0, 1.0);
-        return half4(strokeColor.rgb, strokeColor.a * factor);
-    }
-)";
-
-sk_sp<SkShader> get_grain_shader(const SkColor4f& color, float grainIntensity, float grainScale) {
-    if (grainIntensity <= 0.005f) {
-        return nullptr;
-    }
-    static sk_sp<SkRuntimeEffect> grainEffect;
-    if(!grainEffect) {
-        auto [effect, err] = SkRuntimeEffect::MakeForShader(SkString(grainSkSl));
-        if(!err.isEmpty()) {
-            std::cout << "[MeshCanvasComponent] Grain shader compile error: " << err.c_str() << std::endl;
-            return nullptr;
-        }
-        grainEffect = effect;
-    }
-    SkRuntimeShaderBuilder builder(grainEffect);
-    builder.uniform("strokeColor") = SkV4{color.fR, color.fG, color.fB, color.fA};
-    builder.uniform("grainIntensity") = grainIntensity;
-    builder.uniform("grainScale") = grainScale;
-    return builder.makeShader();
-}
-}
-
-template <typename Archive> void skpath_write(const SkPath& p, Archive& a) {
-    std::vector<std::vector<SkPoint>> contours;
-    bool moveHappened = false;
-
-    SkPath::Iter iter(p, true);
-    for(;;) {
-        std::optional<SkPath::IterRec> rec = iter.next();
-        if(!rec.has_value())
-            break;
-
-        switch(rec->fVerb) {
-            case SkPathVerb::kClose:
-                if(moveHappened) {
-                    contours.back().pop_back();
-                    moveHappened = false;
-                }
-                break;
-            case SkPathVerb::kLine:
-                contours.back().emplace_back(rec->fPoints[1]);
-                break;
-            case SkPathVerb::kMove:
-                contours.emplace_back();
-                contours.back().emplace_back(rec->fPoints[0]);
-                moveHappened = true;
-                break;
-            default:
-                throw std::runtime_error("[get_predraw_data_accurate] Illegal verb " + std::to_string(static_cast<unsigned>(rec->fVerb)));
-                break;
-        }
-    }
-
-    a(p.getFillType() == SkPathFillType::kEvenOdd, contours);
-}
-
-template <typename Archive> SkPath skpath_read(Archive& a) {
-    bool isEvenOdd;
-    std::vector<std::vector<SkPoint>> contours;
-    a(isEvenOdd, contours);
-    // NOTE: setFillType doesn't properly set the fill type for the path IN DEBUG BUILDS. Setting fill type in builder constructor meanwhile works for both debug and release builds
-    SkPathBuilder builder(isEvenOdd ? SkPathFillType::kEvenOdd : SkPathFillType::kWinding);
-    for(const std::vector<SkPoint>& contour : contours) {
-        if(contour.size() == 0)
-            continue;
-        builder.moveTo(contour[0]);
-        for(uint32_t i = 1; i < contour.size(); i++)
-            builder.lineTo(contour[i]);
-        builder.close();
-    }
-    return builder.detach();
-}
+#include "MeshPathSerialization.hpp"
 
 void MeshCanvasComponent::save(cereal::PortableBinaryOutputArchive& a) const {
     skpath_write(d.meshPath, a);
@@ -190,13 +97,6 @@ void MeshCanvasComponent::draw(SkCanvas* canvas, const DrawData& drawData, const
     SkColor4f c{d.color.x(), d.color.y(), d.color.z(), d.color.w()};
     paint.setColor4f(c);
     paint.setAntiAlias(drawData.skiaAA);
-
-    if (drawData.main && !drawData.isSVGRender && drawData.main->toolConfig.brush.grainIntensity > 0.005f) {
-        float grain = drawData.main->toolConfig.brush.grainIntensity;
-        float scale = drawData.main->toolConfig.brush.grainScale;
-        auto shader = get_grain_shader(c, grain, scale);
-        if (shader) paint.setShader(shader);
-    }
 
     canvas->drawPath(d.meshPath, paint);
 }
@@ -334,13 +234,6 @@ bool MeshCanvasComponent::accurate_draw(SkCanvas* canvas, const DrawData& drawDa
             SkColor4f c{d.color.x(), d.color.y(), d.color.z(), d.color.w()};
             paint.setColor4f(c);
             paint.setAntiAlias(drawData.skiaAA);
-
-            if (drawData.main && !drawData.isSVGRender && drawData.main->toolConfig.brush.grainIntensity > 0.005f) {
-                float grain = drawData.main->toolConfig.brush.grainIntensity;
-                float scale = drawData.main->toolConfig.brush.grainScale;
-                auto shader = get_grain_shader(c, grain, scale);
-                if (shader) paint.setShader(shader);
-            }
 
             canvas->drawPath(*pathToDraw, paint);
         }

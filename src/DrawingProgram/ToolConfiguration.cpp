@@ -129,8 +129,7 @@ void ToolConfiguration::init_default_presets_if_empty() {
             .localCorrection = true,
             .smoothingFactor = 0.707f,
             .minimumSize = 0.1f,
-            .pressureAffectsWidth = true,
-            .grainIntensity = 0.0f
+            .pressureAffectsWidth = true
         },
         BrushPreset{
             .name = "Fine Liner",
@@ -144,8 +143,7 @@ void ToolConfiguration::init_default_presets_if_empty() {
             .localCorrection = true,
             .smoothingFactor = 0.85f,
             .minimumSize = 0.25f,
-            .pressureAffectsWidth = true,
-            .grainIntensity = 0.0f
+            .pressureAffectsWidth = true
         },
         BrushPreset{
             .name = "Soft Pencil",
@@ -159,8 +157,7 @@ void ToolConfiguration::init_default_presets_if_empty() {
             .localCorrection = false,
             .smoothingFactor = 0.5f,
             .minimumSize = 0.05f,
-            .pressureAffectsWidth = true,
-            .grainIntensity = 0.0f
+            .pressureAffectsWidth = true
         },
         BrushPreset{
             .name = "Marker",
@@ -174,8 +171,7 @@ void ToolConfiguration::init_default_presets_if_empty() {
             .localCorrection = false,
             .smoothingFactor = 0.707f,
             .minimumSize = 0.5f,
-            .pressureAffectsWidth = false,
-            .grainIntensity = 0.0f
+            .pressureAffectsWidth = false
         }
     };
     selectedPreset = 0;
@@ -198,7 +194,6 @@ void ToolConfiguration::apply_brush_preset(DrawingProgram& drawP, size_t index) 
     drawP.world.main.conf.tabletOptions.brushPressureSmoothingFactor = p.smoothingFactor;
     drawP.world.main.conf.tabletOptions.brushMinimumSize = p.minimumSize;
     drawP.world.main.conf.tabletOptions.pressureAffectsBrushWidth = p.pressureAffectsWidth;
-    brush.grainIntensity = p.grainIntensity;
     drawP.world.main.g.gui.set_to_layout();
 }
 
@@ -220,8 +215,7 @@ void ToolConfiguration::save_current_brush_preset(DrawingProgram& drawP, const s
         .localCorrection = drawP.world.main.conf.tabletOptions.penFilter.enabled,
         .smoothingFactor = drawP.world.main.conf.tabletOptions.brushPressureSmoothingFactor,
         .minimumSize = drawP.world.main.conf.tabletOptions.brushMinimumSize,
-        .pressureAffectsWidth = drawP.world.main.conf.tabletOptions.pressureAffectsBrushWidth,
-        .grainIntensity = brush.grainIntensity
+        .pressureAffectsWidth = drawP.world.main.conf.tabletOptions.pressureAffectsBrushWidth
     };
     presets.push_back(p);
     selectedPreset = static_cast<int>(presets.size() - 1);

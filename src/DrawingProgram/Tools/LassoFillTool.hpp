@@ -17,6 +17,7 @@
  */
 
 #pragma once
+#include "../../ContactLifecycle.hpp"
 #include <include/core/SkCanvas.h>
 #include "../../DrawData.hpp"
 #include <Helpers/SCollision.hpp>
@@ -41,7 +42,7 @@ class LassoFillTool : public DrawingProgramToolBase {
         virtual void input_mouse_motion_callback(const InputManager::MouseMotionCallbackArgs& motion) override;
     private:
         struct FillControls {
-            bool isFilling = false;
+            ContactLifecycle<InputManager::MouseButtonCallbackArgs> contact;
             CoordSpaceHelper coords;
             std::vector<Vector2f> points;
         } controls;

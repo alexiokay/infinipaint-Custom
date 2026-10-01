@@ -162,7 +162,7 @@ class FillAndFlatOverlapWiring(unittest.TestCase):
         line_h = source("src/DrawingProgram/Tools/LineDrawTool.hpp")
         self.assertIn("void gui_inspector();", line_h)
 
-        line_cpp = source("src/DrawingProgram/Tools/LineDrawTool.cpp")
+        line_cpp = source("src/DrawingProgram/Tools/LineDrawTool.cpp") + source("src/LineGeometry.hpp")
         self.assertIn('"line pattern select"', line_cpp)
         self.assertIn('"Solid"', line_cpp)
         self.assertIn('"Dashed"', line_cpp)
@@ -182,25 +182,32 @@ class FillAndFlatOverlapWiring(unittest.TestCase):
         self.assertIn("SkPathOp::kUnion_SkPathOp", line_cpp)
 
     def test_line_and_arrow_hole_free_geometry(self):
-        import math
-        def polygon_area_and_winding(pts):
-            n = len(pts)
-            area2 = sum(pts[i][0] * pts[(i + 1) % n][1] - pts[(i + 1) % n][0] * pts[i][1] for i in range(n))
-            return area2 * 0.5
+        # Wiring only: CTest exercises the production helper, not a Python copy
+        # of the mathematics. Skia tests also exercise the shared line generator.
+        line = source("src/LineGeometry.hpp")
+        self.assertIn("PolygonGeometry::arrow", line)
+        self.assertIn("create_arrow_path(start, -dir, arrowLen, arrowWidth)", line)
+        self.assertIn("create_arrow_path(end, dir, arrowLen, arrowWidth)", line)
+        self.assertIn("add_test(NAME polygon_geometry", source("tests/CMakeLists.txt"))
 
-        # Check arrow path winding is strictly positive (clockwise in screen coords)
-        for angle in [0, 45, 90, 135, 180, 225, 270, 315]:
-            rad = math.radians(angle)
-            dir = (math.cos(rad), math.sin(rad))
-            normal = (-dir[1], dir[0])
-            tip = (100.0, 100.0)
-            base = (tip[0] - dir[0] * 30.0, tip[1] - dir[1] * 30.0)
-            w1 = (base[0] + normal[0] * 15.0, base[1] + normal[1] * 15.0)
-            w2 = (base[0] - normal[0] * 15.0, base[1] - normal[1] * 15.0)
-            # Order: w2 -> tip -> w1
-            arrow_pts = [w2, tip, w1]
-            area = polygon_area_and_winding(arrow_pts)
-            self.assertGreater(area, 0, f"Arrow contour must have positive winding at angle {angle}")
+    def test_line_mesh_has_no_circle_curve_commands(self):
+        line = source("src/LineGeometry.hpp")
+        self.assertNotIn(".addCircle(", line)
+        self.assertIn("PolygonGeometry::circle", line)
+
+    def test_unfinished_grain_removed(self):
+        for path in ["src/CanvasComponents/MeshCanvasComponent.cpp", "src/BrushPressureConfig.hpp",
+                     "src/DrawingProgram/ToolConfiguration.cpp", "src/DrawingProgram/ToolConfiguration.hpp"]:
+            text = source(path)
+            for name in ["grainIntensity", "grainScale", "grainSkSl", "get_grain_shader"]:
+                self.assertNotIn(name, text)
+
+    def test_lasso_contact_ownership_and_polygon_validation(self):
+        lasso = source("src/DrawingProgram/Tools/LassoFillTool.cpp")
+        self.assertIn("controls.contact.begin(button)", lasso)
+        self.assertIn("controls.contact.accepts(motion", lasso)
+        self.assertIn("controls.contact.finish(button", lasso)
+        self.assertIn("PolygonGeometry::hasArea(points)", lasso)
 
 if __name__ == "__main__":
     unittest.main()

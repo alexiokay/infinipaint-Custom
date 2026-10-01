@@ -2,6 +2,7 @@ cmake_minimum_required(VERSION 3.27.0)
 project(infinipaint)
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
+option(INFINIPAINT_GEOMETRY_TESTS "Build production Skia geometry regression tests" OFF)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
@@ -376,6 +377,17 @@ if((NOT EMSCRIPTEN) AND (NOT APPLE) AND (NOT ANDROID))
 endif()
 
 target_link_libraries(main zstd::libzstd_static)
+
+if(INFINIPAINT_GEOMETRY_TESTS)
+    if(EMSCRIPTEN OR NO_CONAN_BUILD)
+        message(FATAL_ERROR "Geometry tests currently require the Conan Skia target")
+    endif()
+    enable_testing()
+    add_executable(skia_geometry tests/skia_geometry.cpp)
+    target_include_directories(skia_geometry PRIVATE "include")
+    target_link_libraries(skia_geometry PRIVATE skia-infinipaint::skia-infinipaint)
+    add_test(NAME skia_geometry COMMAND skia_geometry)
+endif()
 
 if(NO_CONAN_BUILD)
     target_link_libraries(main zstd::libzstd_static Clipper2::Clipper2)

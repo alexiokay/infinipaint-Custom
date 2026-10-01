@@ -70,6 +70,13 @@ int main() {
             widths.reset(peak,.25f);
             require(widths.output(.25f)==.25f,"peak leaked between strokes");
         }
+        const auto oldGrain = json{{"engine", "samples"}, {"pressureResponse", "preserve"},
+                                  {"grainIntensity", 1.0}, {"grainScale", 2.0}}.get<Config>();
+        require(oldGrain.samplePath() && oldGrain.pressureResponse == Response::Preserve,
+                "removed grain keys changed pressure policy");
+        const json cleaned = oldGrain;
+        require(!cleaned.contains("grainIntensity") && !cleaned.contains("grainScale"),
+                "removed grain settings persisted");
         std::cout << "Pressure migration and independent width policies passed\n";
     } catch(const std::exception& e) { std::cerr<<e.what()<<'\n'; return 1; }
 }

@@ -31,6 +31,7 @@
 #include "../../GUIStuff/ElementHelpers/TextLabelHelpers.hpp"
 #include "../../CanvasComponents/MeshCanvasComponent.hpp"
 #include "../../Toolbar.hpp"
+#include "../../PolygonGeometry.hpp"
 
 LassoFillTool::LassoFillTool(DrawingProgram& initDrawP):
     DrawingProgramToolBase(initDrawP)
@@ -76,23 +77,24 @@ void LassoFillTool::tool_update() {
 }
 
 bool LassoFillTool::prevent_undo_or_redo() {
-    return controls.isFilling;
+    return controls.contact.active();
 }
 
 void LassoFillTool::switch_tool(DrawingProgramToolType) {
-    controls.isFilling = false;
+    controls.contact.cancel();
     controls.points.clear();
 }
 
 void LassoFillTool::input_mouse_button_on_canvas_callback(const InputManager::MouseButtonCallbackArgs& button) {
     if(button.button == InputManager::MouseButton::LEFT) {
-        if(button.down && drawP.layerMan.is_a_layer_being_edited() && !controls.isFilling && !drawP.world.main.g.gui.cursor_obstructed()) {
-            controls.isFilling = true;
+        if(button.down && drawP.layerMan.is_a_layer_being_edited() && !controls.contact.active() && !drawP.world.main.g.gui.cursor_obstructed()) {
             controls.coords = drawP.world.drawData.cam.c;
             controls.points.clear();
             Vector2f startPt = controls.coords.from_cam_space_to_this(drawP.world, button.pos);
+            if (!startPt.allFinite()) return;
+            controls.contact.begin(button);
             controls.points.emplace_back(startPt);
-        } else if(!button.down && controls.isFilling) {
+        } else if(!button.down && controls.contact.finish(button, button.deviceType == InputManager::MouseDeviceType::PEN)) {
             if(controls.points.size() >= 3) {
                 SkPathBuilder pathBuilder;
                 pathBuilder.moveTo(controls.points[0].x(), controls.points[0].y());
@@ -103,7 +105,10 @@ void LassoFillTool::input_mouse_button_on_canvas_callback(const InputManager::Mo
                 SkPath fillPath = pathBuilder.detach();
 
                 SkRect bounds = fillPath.getBounds();
-                if(bounds.width() >= 4.0f && bounds.height() >= 4.0f) {
+                std::vector<PolygonGeometry::Point> points;
+                points.reserve(controls.points.size());
+                for (const auto& point : controls.points) points.push_back({point.x(), point.y()});
+                if(bounds.width() >= 4.0f && bounds.height() >= 4.0f && PolygonGeometry::hasArea(points)) {
                     CanvasComponentContainer* newContainer = new CanvasComponentContainer(drawP.world.netObjMan, CanvasComponentType::MESH);
                     MeshCanvasComponent& newMesh = static_cast<MeshCanvasComponent&>(newContainer->get_comp());
 
@@ -123,23 +128,23 @@ void LassoFillTool::input_mouse_button_on_canvas_callback(const InputManager::Mo
                 }
             }
             controls.points.clear();
-            controls.isFilling = false;
+            controls.contact.cancel();
             drawP.world.main.g.gui.set_to_layout();
         }
     }
 }
 
 void LassoFillTool::input_mouse_motion_callback(const InputManager::MouseMotionCallbackArgs& motion) {
-    if(controls.isFilling) {
+    if(controls.contact.accepts(motion, motion.deviceType == InputManager::MouseDeviceType::PEN, motion.penContact)) {
         Vector2f pt = controls.coords.from_cam_space_to_this(drawP.world, motion.pos);
-        if(vec_distance(controls.points.back(), pt) > 3.0f) {
+        if(pt.allFinite() && vec_distance(controls.points.back(), pt) > 3.0f) {
             controls.points.emplace_back(pt);
         }
     }
 }
 
 void LassoFillTool::draw(SkCanvas* canvas, const DrawData& drawData) {
-    if(controls.isFilling && controls.points.size() >= 2) {
+    if(controls.contact.active() && controls.points.size() >= 2) {
         canvas->save();
         controls.coords.transform_sk_canvas(canvas, drawData);
 
