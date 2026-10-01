@@ -137,10 +137,12 @@ class GraphiteUI(unittest.TestCase):
     def test_touch_scroll_drag_protection_and_color_selection(self):
         checkbox = source("src/GUIStuff/Elements/CheckBox.cpp")
         self.assertIn("FingerInput::GestureType::TAP", checkbox)
+        self.assertEqual(checkbox.count("mouseHoverAnim = mouseHovering;"), 2)
         self.assertNotIn("input_finger_motion_callback", checkbox)
 
         radio = source("src/GUIStuff/Elements/RadioButton.cpp")
         self.assertIn("FingerInput::GestureType::TAP", radio)
+        self.assertEqual(radio.count("mouseHoverAnim = mouseHovering;"), 2)
         self.assertNotIn("input_finger_motion_callback", radio)
 
         button = source("src/GUIStuff/Elements/SelectableButton.cpp")

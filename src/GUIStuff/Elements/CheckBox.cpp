@@ -60,6 +60,7 @@ bool CheckBox::is_hovering_animation() {
 }
 
 void CheckBox::input_mouse_button_callback(const InputManager::MouseButtonCallbackArgs& button) {
+    mouseHoverAnim = mouseHovering;
     if(button.deviceType == InputManager::MouseDeviceType::PEN) {
         if(button.button == InputManager::MouseButton::LEFT) {
             if(button.down) {
@@ -89,6 +90,7 @@ void CheckBox::input_mouse_button_callback(const InputManager::MouseButtonCallba
 }
 
 void CheckBox::input_mouse_motion_callback(const InputManager::MouseMotionCallbackArgs& motion) {
+    mouseHoverAnim = mouseHovering;
     if(motion.deviceType == InputManager::MouseDeviceType::PEN && isHeld) {
         if((motion.pos - penStartPos).norm() > 8.0f) {
             hasMovedPen = true;
