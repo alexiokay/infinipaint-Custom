@@ -21,6 +21,7 @@ class GraphiteUI(unittest.TestCase):
         self.assertIn("pointerDown == PointerDownState::MOUSE_LEFT", panel)
         self.assertIn("button.penId != controls.leftPress.penId", panel)
         self.assertIn("f.action.fingerID == toolPanelDragFinger", panel)
+        self.assertIn("!b.down && toolPanelDragging && b.deviceType == toolPanelDragDevice", panel)
         self.assertIn("f.fingers.size() > 1", panel)
         for path in ("src/DrawingProgram/DrawingProgram.cpp", "src/GUIStuff/Elements/NumberSlider.hpp", "src/GUIStuff/Elements/ScrollArea.cpp"):
             text = source(path)

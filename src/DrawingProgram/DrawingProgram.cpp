@@ -808,7 +808,7 @@ void DrawingProgram::tool_options_gui(Toolbar& t) {
                     toolPanelDragStart = b.pos;
                     toolPanelStartPosition = position;
                     toolPanelDragMoved = false;
-                } else if (!b.down && b.deviceType == toolPanelDragDevice &&
+                } else if (!b.down && toolPanelDragging && b.deviceType == toolPanelDragDevice &&
                     (b.deviceType != InputManager::MouseDeviceType::PEN || b.penId == toolPanelDragPen)) {
                     if (isCircle && !toolPanelDragMoved) {
                         toolPanelExpanded = true;
