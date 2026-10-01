@@ -21,6 +21,10 @@ policy changes. Locking is a local accident-prevention feature, not security or
 a collaboration permission: remote updates and pending image downloads continue.
 
 Navigation, including touch gestures and camera rotation, remains available.
+The upstream unified touch tracker is used directly. A policy change ends the
+owning mouse/pen or single-finger contact and clears camera control. Fingers
+already resting on the screen cannot start a new tool contact until lifted.
+Two-/three-finger undo/redo gestures still pass through the guarded undo manager.
 The ordinary fixed toolbar has no draggable position. The lock does not prevent
 changing global application settings or saving/exporting the document.
 

@@ -100,7 +100,7 @@ void DrawingProgram::set_workspace_lock(bool enabled) {
     }
     if (enabled) {
         // Complete the owning contact before changing input policy.
-        if ((pointerDown == PointerDownState::MOUSE_LEFT)) {
+        if (pointerDown == PointerDownState::MOUSE_LEFT) {
             auto release = controls.leftPress;
             release.down = false;
             input_mouse_button_callback(release);
@@ -118,7 +118,7 @@ void DrawingProgram::set_workspace_lock(bool enabled) {
     } else {
         const bool restoreTool = workspace_edits_blocked();
         // End any navigation contact without letting its release reach a brush.
-        if ((pointerDown == PointerDownState::MOUSE_LEFT)) {
+        if (pointerDown == PointerDownState::MOUSE_LEFT) {
             auto release = controls.leftPress;
             release.down = false;
             input_mouse_button_callback(release);

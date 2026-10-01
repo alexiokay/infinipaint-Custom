@@ -28,5 +28,19 @@ class WorkspaceLockWiring(unittest.TestCase):
         self.assertIn("add_test(NAME workspace_lock", (ROOT / "tests/CMakeLists.txt").read_text())
         self.assertIn("bool workspaceLocked = false", (ROOT / "src/DrawingProgram/DrawingProgram.hpp").read_text())
 
+    def test_unified_touch_policy_and_contact_handoff(self):
+        text = (ROOT / "src/DrawingProgram/DrawingProgram.cpp").read_text(encoding="utf-8")
+        start = text.index("void DrawingProgram::input_finger_touch_callback")
+        touch = text[start:].split("\nstd::optional", 1)[0]
+        self.assertIn("WorkspaceLock::blocksTouch", touch)
+        self.assertIn("workspace_edits_blocked() && navigationTool", touch)
+        self.assertIn("lastTouch = touch.clone()", touch)
+        self.assertIn("std::erase_if", touch)
+        lock = text.split("void DrawingProgram::set_workspace_lock", 1)[1].split("\nvoid ", 1)[0]
+        self.assertIn("release.action.type = FingerInput::ActionType::UP", lock)
+        self.assertIn("PointerDownState::FINGER_DISABLED", lock)
+        self.assertIn("cam.clear_control_mode()", lock)
+        self.assertNotIn("controls.leftClickHeld", text)
+
 if __name__ == "__main__":
     unittest.main()
