@@ -385,6 +385,7 @@ if(INFINIPAINT_GEOMETRY_TESTS)
     endif()
     enable_testing()
     add_executable(skia_geometry tests/skia_geometry.cpp)
+    target_compile_definitions(skia_geometry PRIVATE IS_CLIENT)
     target_include_directories(skia_geometry PRIVATE "include")
     target_link_libraries(skia_geometry PRIVATE skia-infinipaint::skia-infinipaint)
     # The production serializer includes SDL-backed helper declarations.
