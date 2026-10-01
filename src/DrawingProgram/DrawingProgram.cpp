@@ -63,6 +63,8 @@
 #include "../GUIStuff/ElementHelpers/TextBoxHelpers.hpp"
 #include "../GUIStuff/ElementHelpers/LayoutHelpers.hpp"
 #include "../UIControlGeometry.hpp"
+#include "../GUIStuff/ElementHelpers/ToolInspectorHelpers.hpp"
+#include "../GUIStuff/ElementHelpers/CheckBoxHelpers.hpp"
 
 DrawingProgram::DrawingProgram(World& initWorld):
     world(initWorld),
@@ -81,7 +83,57 @@ void DrawingProgram::on_tab_out() {
     controls.middleClickHeld = false;
 }
 
+bool DrawingProgram::workspace_edits_blocked() const {
+    return WorkspaceLock::blocksEdits(workspaceLocked, world.main.toolConfig.workspaceLock);
+}
+
+bool DrawingProgram::workspace_panel_locked() const {
+    return workspaceLocked && world.main.toolConfig.workspaceLock.lockPanelPosition;
+}
+
+void DrawingProgram::set_workspace_lock(bool enabled) {
+    if (workspaceLocked == enabled) return;
+    if (enabled) {
+        // Complete the owning contact before changing input policy.
+        if (controls.leftClickHeld) {
+            auto release = controls.leftPress;
+            release.down = false;
+            input_mouse_button_callback(release);
+        }
+        controls.middleClickHeld = false;
+        toolBeforeWorkspaceLock = (temporaryEraser || tempMoveToolSwitch != TemporaryMoveToolSwitch::NONE)
+            ? toolTypeAfterTempMove : drawTool->get_type();
+        if (world.main.toolConfig.workspaceLock.blockCanvasEdits) {
+            tempMoveToolSwitch = TemporaryMoveToolSwitch::NONE;
+            temporaryEraser = false;
+            selection.deselect_all();
+            switch_to_tool(DrawingProgramToolType::PAN, true);
+        }
+        workspaceLocked = true;
+    } else {
+        const bool restoreTool = workspace_edits_blocked();
+        // End any navigation contact without letting its release reach a brush.
+        if (controls.leftClickHeld) {
+            auto release = controls.leftPress;
+            release.down = false;
+            input_mouse_button_callback(release);
+        }
+        controls.middleClickHeld = false;
+        if (restoreTool) tempMoveToolSwitch = TemporaryMoveToolSwitch::NONE;
+        workspaceLocked = false;
+        if (restoreTool) switch_to_tool(toolBeforeWorkspaceLock, true);
+    }
+    auto navigationRelease = controls.leftPress;
+    navigationRelease.down = false;
+    world.drawData.cam.input_mouse_button_on_canvas_callback(world, navigationRelease);
+    toolPanelDragging = false;
+    toolToSwitchToAfterUpdate.reset();
+    clear_right_click_popup();
+    world.main.g.gui.set_to_layout();
+}
+
 void DrawingProgram::input_paste_callback(const CustomEvents::PasteEvent& paste) {
+    if (workspace_edits_blocked()) return;
     if(paste.type == CustomEvents::PasteEvent::DataType::IMAGE)
         selection.paste_image_process_event(paste);
     else
@@ -89,6 +141,7 @@ void DrawingProgram::input_paste_callback(const CustomEvents::PasteEvent& paste)
 }
 
 void DrawingProgram::input_android_text_box_input_callback(const CustomEvents::AndroidTextBoxInputEvent& textboxInput) {
+    if (workspace_edits_blocked()) return;
     drawTool->input_android_text_box_input_callback(textboxInput);
 }
 
@@ -103,6 +156,7 @@ void DrawingProgram::input_drop_file_callback(const InputManager::DropCallbackAr
 }
 
 void DrawingProgram::input_drop_text_callback(const InputManager::DropCallbackArgs& drop) {
+    if (workspace_edits_blocked()) return;
     if(is_valid_http_url(drop.data)) {
         CanvasComponentContainer* newContainer = new CanvasComponentContainer(world.netObjMan, CanvasComponentType::IMAGE);
         ImageCanvasComponent& img = static_cast<ImageCanvasComponent&>(newContainer->get_comp());
@@ -118,15 +172,19 @@ void DrawingProgram::input_drop_text_callback(const InputManager::DropCallbackAr
 }
 
 void DrawingProgram::input_text_key_callback(const InputManager::KeyCallbackArgs& key) {
+    if (workspace_edits_blocked()) return;
     drawTool->input_text_key_callback(key);
 }
 
 void DrawingProgram::input_text_callback(const InputManager::TextCallbackArgs& text) {
+    if (workspace_edits_blocked()) return;
     drawTool->input_text_callback(text);
 }
 
 void DrawingProgram::input_mouse_button_callback(const InputManager::MouseButtonCallbackArgs& button) {
-    if(button.deviceType == InputManager::MouseDeviceType::TOUCH && world.main.conf.disableTouchForDrawing)
+    if(button.deviceType == InputManager::MouseDeviceType::TOUCH &&
+       WorkspaceLock::blocksTouch(world.main.conf.disableTouchForDrawing, workspaceLocked, world.main.toolConfig.workspaceLock) &&
+       !(workspace_edits_blocked() && (drawTool->get_type() == DrawingProgramToolType::PAN || drawTool->get_type() == DrawingProgramToolType::ZOOM)))
         return;
 
     // A mouse/touch release must not consume a pen stroke's eventual release.
@@ -194,7 +252,9 @@ void DrawingProgram::input_mouse_button_callback(const InputManager::MouseButton
 }
 
 void DrawingProgram::input_mouse_motion_callback(const InputManager::MouseMotionCallbackArgs& motion) {
-    if(motion.deviceType == InputManager::MouseDeviceType::TOUCH && world.main.conf.disableTouchForDrawing)
+    if(motion.deviceType == InputManager::MouseDeviceType::TOUCH &&
+       WorkspaceLock::blocksTouch(world.main.conf.disableTouchForDrawing, workspaceLocked, world.main.toolConfig.workspaceLock) &&
+       !(workspace_edits_blocked() && (drawTool->get_type() == DrawingProgramToolType::PAN || drawTool->get_type() == DrawingProgramToolType::ZOOM)))
         return;
 
     drawTool->input_mouse_motion_callback(motion);
@@ -294,6 +354,7 @@ void DrawingProgram::input_key_callback(const InputManager::KeyCallbackArgs& key
             break;
         }
     }
+    if (workspace_edits_blocked()) return;
     selection.input_key_callback_display_selection(key);
     drawTool->input_key_callback(key);
 }
@@ -319,6 +380,7 @@ void DrawingProgram::input_pen_axis_callback(const InputManager::PenAxisCallback
 }
 
 std::optional<InputManager::TextBoxStartInfo> DrawingProgram::get_text_box_start_info() {
+    if (workspace_edits_blocked()) return std::nullopt;
     return drawTool->get_text_box_start_info();
 }
 
@@ -426,6 +488,18 @@ void DrawingProgram::toolbar_gui(Toolbar& t) {
                     });
                 };
 
+                text_button_with_icon(gui, "Workspace lock", workspaceLocked ? "data/icons/workspace-locked.svg" : "data/icons/workspace-unlocked.svg",
+                    workspaceLocked ? (workspace_edits_blocked() ? "View only" : "Locked") : "Lock", {
+                        .isSelected = workspaceLocked,
+                        .onClick = [this] { set_workspace_lock(!workspaceLocked); }
+                    });
+                text_button(gui, "Workspace lock options", "Lock options", {
+                    .isSelected = workspaceLockOptions,
+                    .onClick = [this] {
+                        workspaceLockOptions = !workspaceLockOptions;
+                        world.main.g.gui.set_to_layout();
+                    }
+                });
                 tool_button("Brush Toolbar Button", "data/icons/brush.svg", DrawingProgramToolType::BRUSH);
                 tool_button("Eraser Toolbar Button", "data/icons/eraser.svg", DrawingProgramToolType::ERASER);
                 tool_button("Fill Toolbar Button", "data/icons/fill.svg", DrawingProgramToolType::FILL);
@@ -454,6 +528,7 @@ void DrawingProgram::toolbar_gui(Toolbar& t) {
 }
 
 void DrawingProgram::right_click_popup_gui(Toolbar& t) {
+    if (workspace_edits_blocked()) return;
     if(rightClickPopupLocation.has_value())
         drawTool->right_click_popup_gui(t, rightClickPopupLocation.value());
 }
@@ -473,6 +548,7 @@ void DrawingProgram::clear_right_click_popup() {
 }
 
 void DrawingProgram::paste_object_clipboard(const Vector2f& pos) {
+    if (workspace_edits_blocked()) return;
     selection.deselect_all();
     selection.paste_clipboard(pos);
     world.main.g.gui.set_to_layout();
@@ -616,6 +692,28 @@ void DrawingProgram::tool_options_gui(Toolbar& t) {
     auto& gui = world.main.g.gui;
     auto& io = gui.io;
     auto& prefs = world.main.toolConfig.toolPanel;
+    if (workspaceLockOptions) {
+        tool_inspector(gui, workspaceLocked ? "Workspace locked" : "Workspace lock", [&] {
+            inspector_hint(gui, "Pan and zoom stay available. Unlock to edit your drawing.");
+            if (!workspaceLocked) {
+                auto& p = world.main.toolConfig.workspaceLock;
+                checkbox_boolean_field(gui, "lock edits", "Block canvas editing", &p.blockCanvasEdits);
+                checkbox_boolean_field(gui, "lock touch", "Temporarily block touch drawing", &p.blockTouchDrawing);
+                checkbox_boolean_field(gui, "lock panels", "Lock panel position", &p.lockPanelPosition);
+                inspector_hint(gui, "Lock choices are saved. The app always starts unlocked.");
+            } else {
+                inspector_hint(gui, "Unlock before changing lock options. Saved touch settings are unchanged.");
+            }
+            text_button(gui, "lock inspector toggle", workspaceLocked ? "Unlock workspace" : "Lock workspace", {
+                .onClick = [this] { set_workspace_lock(!workspaceLocked); }
+            });
+            text_button(gui, "close lock options", "Close options", {
+                .onClick = [this] { workspaceLockOptions = false; world.main.g.gui.set_to_layout(); }
+            });
+        });
+        return;
+    }
+    if (workspace_edits_blocked()) return;
     if (!toolPanelInitialized) { toolPanelExpanded=prefs.pinned; toolPanelInitialized=true; }
     if (!world.main.window.windowFocus ||
         (toolPanelDragDevice==InputManager::MouseDeviceType::MOUSE && !world.main.input.mouse.leftDown) ||
@@ -637,6 +735,7 @@ void DrawingProgram::tool_options_gui(Toolbar& t) {
     auto makeDragCallbacks = [&](bool isCircle) {
         return LayoutElement::Callbacks{
             .mouseButton = [this, position, isCircle](LayoutElement* l, const InputManager::MouseButtonCallbackArgs& b) {
+                if (workspace_panel_locked()) return;
                 if (b.button != InputManager::MouseButton::LEFT) return;
                 if (b.down && l->mouseHovering && !toolPanelDragging) {
                     toolPanelDragging = true;
@@ -655,6 +754,7 @@ void DrawingProgram::tool_options_gui(Toolbar& t) {
                 }
             },
             .mouseMotion = [this, available, anchorHeight](LayoutElement*, const InputManager::MouseMotionCallbackArgs& m) {
+                if (workspace_panel_locked()) return;
                 if (!toolPanelDragging || m.deviceType != toolPanelDragDevice ||
                     (m.deviceType == InputManager::MouseDeviceType::PEN && m.penId != toolPanelDragPen)) return;
                 if ((m.pos - toolPanelDragStart).norm() > 4.0f) {
@@ -669,6 +769,7 @@ void DrawingProgram::tool_options_gui(Toolbar& t) {
                 }
             },
             .fingerTouch = [this, position, isCircle](LayoutElement* l, const InputManager::FingerTouchCallbackArgs& f) {
+                if (workspace_panel_locked()) return;
                 if (toolPanelDragging && toolPanelDragDevice != InputManager::MouseDeviceType::TOUCH) return;
                 if (f.fingerDownCount > 1) { toolPanelDragging = false; return; }
                 if (f.down && l->mouseHovering) {
@@ -687,6 +788,7 @@ void DrawingProgram::tool_options_gui(Toolbar& t) {
                 }
             },
             .fingerMotion = [this, available, anchorHeight](LayoutElement*, const InputManager::FingerMotionCallbackArgs& f) {
+                if (workspace_panel_locked()) return;
                 if (!toolPanelDragging || toolPanelDragDevice != InputManager::MouseDeviceType::TOUCH) return;
                 if (f.fingerDownCount != 1) { toolPanelDragging = false; return; }
                 if (f.fingerID != toolPanelDragFinger) return;
@@ -912,6 +1014,7 @@ void DrawingProgram::update() {
 }
 
 void DrawingProgram::pen_tool_switch_check() {
+    if (workspace_edits_blocked()) return;
     if(world.main.input.pen.isEraser && !temporaryEraser && tempMoveToolSwitch == TemporaryMoveToolSwitch::NONE) {
         if(drawTool->get_type() == DrawingProgramToolType::BRUSH)
             switch_to_tool(DrawingProgramToolType::ERASER);
@@ -948,6 +1051,7 @@ bool DrawingProgram::is_selection_allowing_tool(DrawingProgramToolType typeToChe
 }
 
 void DrawingProgram::switch_to_tool_ptr(std::unique_ptr<DrawingProgramToolBase> newTool) {
+    if (workspace_edits_blocked() && newTool->get_type() != DrawingProgramToolType::PAN && newTool->get_type() != DrawingProgramToolType::ZOOM) return;
     drawTool->switch_tool(newTool->get_type());
     drawTool = std::move(newTool);
     clear_right_click_popup();
@@ -955,6 +1059,7 @@ void DrawingProgram::switch_to_tool_ptr(std::unique_ptr<DrawingProgramToolBase> 
 }
 
 void DrawingProgram::switch_to_tool(DrawingProgramToolType newToolType, bool force) {
+    if (workspace_edits_blocked() && newToolType != DrawingProgramToolType::PAN && newToolType != DrawingProgramToolType::ZOOM) return;
     if(newToolType != drawTool->get_type() || force) {
         drawTool->switch_tool(newToolType);
         drawTool = DrawingProgramToolBase::allocate_tool_type(*this, newToolType);
@@ -964,7 +1069,7 @@ void DrawingProgram::switch_to_tool(DrawingProgramToolType newToolType, bool for
 }
 
 bool DrawingProgram::prevent_undo_or_redo() {
-    return drawTool->prevent_undo_or_redo();
+    return workspace_edits_blocked() || drawTool->prevent_undo_or_redo();
 }
 
 std::pair<SkPaint, SkPaint> DrawingProgram::select_tool_line_paint(const DrawData& drawData) {
@@ -1057,6 +1162,7 @@ void DrawingProgram::input_add_file_to_canvas_callback(const CustomEvents::AddFi
 }
 
 void DrawingProgram::add_file_to_canvas_by_path(const std::filesystem::path& filePath, Vector2f dropPos) {
+    if (workspace_edits_blocked()) return;
     if(layerMan.is_a_layer_being_edited()) {
         NetworkingObjects::NetObjTemporaryPtr<ResourceData> imageTempPtr = world.rMan.add_resource_file(filePath);
         if(imageTempPtr) {
@@ -1081,6 +1187,7 @@ void DrawingProgram::add_file_to_canvas_by_path(const std::filesystem::path& fil
 }
 
 CanvasComponentContainer::ObjInfo* DrawingProgram::add_file_to_canvas_by_data(const std::string& fileName, std::string_view fileBuffer, Vector2f dropPos) {
+    if (workspace_edits_blocked()) return nullptr;
     if(layerMan.is_a_layer_being_edited()) {
         ResourceData newResource;
         newResource.data = std::make_shared<std::string>(fileBuffer);
@@ -1143,12 +1250,14 @@ Vector4f* DrawingProgram::color_picker_color(Vector4f* oldColor) {
 }
 
 bool DrawingProgram::phone_gui_tool_specific_bottom_toolbar_exists() {
+    if (workspace_edits_blocked()) return false;
     if(selection.is_something_selected())
         return true;
     return drawTool->phone_gui_tool_specific_bottom_toolbar_exists();
 }
 
 void DrawingProgram::phone_gui_tool_specific_bottom_toolbar(PhoneDrawingProgramScreen& t) {
+    if (workspace_edits_blocked()) return;
     if(selection.is_something_selected())
         selection.phone_selection_bottom_toolbar(t);
     else

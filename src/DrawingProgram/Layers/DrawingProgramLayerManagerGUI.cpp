@@ -70,6 +70,10 @@ void DrawingProgramLayerManagerGUI::setup_list_gui() {
     using namespace ElementHelpers;
 
     auto& world = layerMan.drawP.world;
+    if (layerMan.drawP.workspace_edits_blocked()) {
+        text_label_centered(world.main.g.gui, "View only: unlock to edit layers.");
+        return;
+    }
     if(layerMan.layerTreeRoot) {
         auto& gui = world.main.g.gui;
         if(layerMan.layerTreeRoot->get_folder().folderList->empty()) {
@@ -528,6 +532,7 @@ NetworkingObjects::NetObjOrderedListIterator<DrawingProgramLayerListItem> Drawin
 }
 
 void DrawingProgramLayerManagerGUI::remove_layer(const GUIStuff::TreeListingObjIndexList& objIndex) {
+    if (layerMan.drawP.workspace_edits_blocked()) return;
     refresh_gui_data();
 
     auto& world = layerMan.drawP.world;

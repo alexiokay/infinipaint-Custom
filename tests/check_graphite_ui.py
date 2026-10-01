@@ -111,7 +111,7 @@ class GraphiteUI(unittest.TestCase):
         self.assertIn("apply_brush_preset(DrawingProgram& drawP, size_t index)", tool_cfg)
         self.assertIn("save_current_brush_preset(DrawingProgram& drawP", tool_cfg)
         self.assertIn("delete_brush_preset(size_t index)", tool_cfg)
-        self.assertIn("NLOHMANN_DEFINE_TYPE_INTRUSIVE_WITH_DEFAULT(ToolConfiguration, brush, toolPanel, eraser, ellipseDraw, rectDraw, eyeDropper, lineDraw, screenshot, globalConf, presets, selectedPreset)", tool_cfg)
+        self.assertIn("NLOHMANN_DEFINE_TYPE_INTRUSIVE_WITH_DEFAULT(ToolConfiguration, brush, toolPanel, workspaceLock, eraser, ellipseDraw, rectDraw, eyeDropper, lineDraw, screenshot, globalConf, presets, selectedPreset)", tool_cfg)
 
         impl = source("src/DrawingProgram/ToolConfiguration.cpp")
         self.assertIn('"Studio Pen"', impl)

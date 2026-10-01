@@ -29,11 +29,11 @@ WorldUndoManager::WorldUndoManager(World& initWorld):
 {}
 
 bool WorldUndoManager::can_undo() {
-    return !undoQueue.empty();
+    return !world.drawProg.workspace_edits_blocked() && !undoQueue.empty();
 }
 
 bool WorldUndoManager::can_redo() {
-    return !redoQueue.empty();
+    return !world.drawProg.workspace_edits_blocked() && !redoQueue.empty();
 }
 
 void WorldUndoManager::push(std::unique_ptr<WorldUndoAction> undoAction) {
@@ -69,6 +69,7 @@ void WorldUndoManager::push_redo(std::vector<std::unique_ptr<WorldUndoAction>> u
 }
 
 void WorldUndoManager::undo() {
+    if (world.drawProg.workspace_edits_blocked()) return;
     if(undoQueue.empty())
         return;
 
@@ -100,6 +101,7 @@ void WorldUndoManager::undo() {
 }
 
 void WorldUndoManager::redo() {
+    if (world.drawProg.workspace_edits_blocked()) return;
     if(redoQueue.empty())
         return;
 

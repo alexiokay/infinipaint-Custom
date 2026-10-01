@@ -238,6 +238,7 @@ void DrawingProgramSelection::phone_bottom_toolbar_gui(PhoneDrawingProgramScreen
 }
 
 void DrawingProgramSelection::update_selection_stroke_color() {
+    if (drawP.workspace_edits_blocked()) return;
     if(strokeColorChangeData.oldColor != strokeColorChangeData.newColor) {
         for(auto& c : selectedSet) {
             if(c->obj->get_comp().get_stroke_color() != std::nullopt) {
@@ -545,6 +546,7 @@ void DrawingProgramSelection::update() {
 }
 
 void DrawingProgramSelection::input_key_callback_modify_selection(const InputManager::KeyCallbackArgs& key) {
+    if (drawP.workspace_edits_blocked()) return;
     switch(key.key) {
         case InputManager::KEY_GENERIC_UP: {
             translate_key(InputManager::KEY_GENERIC_UP, key.down);
@@ -763,6 +765,7 @@ void DrawingProgramSelection::deselect_all() {
 }
 
 void DrawingProgramSelection::push_selection_to_front() {
+    if (drawP.workspace_edits_blocked()) return;
     check_add_stroke_color_change_undo();
 
     auto selectedVec = selectedSet;
@@ -771,6 +774,7 @@ void DrawingProgramSelection::push_selection_to_front() {
 }
 
 void DrawingProgramSelection::push_selection_to_back() {
+    if (drawP.workspace_edits_blocked()) return;
     check_add_stroke_color_change_undo();
 
     auto selectedVec = selectedSet;
@@ -779,6 +783,7 @@ void DrawingProgramSelection::push_selection_to_back() {
 }
 
 void DrawingProgramSelection::delete_all() {
+    if (drawP.workspace_edits_blocked()) return;
     check_add_stroke_color_change_undo();
 
     if(is_something_selected()) {
@@ -894,6 +899,7 @@ void DrawingProgramSelection::export_selection_screenshot() {
 }
 
 void DrawingProgramSelection::paste_clipboard(Vector2f pasteScreenPos) {
+    if (drawP.workspace_edits_blocked()) return;
     check_add_stroke_color_change_undo();
 
     if(drawP.layerMan.is_a_layer_being_edited()) {
@@ -939,6 +945,7 @@ void DrawingProgramSelection::paste_clipboard(Vector2f pasteScreenPos) {
 }
 
 void DrawingProgramSelection::paste_image_process_event(const CustomEvents::PasteEvent& paste) {
+    if (drawP.workspace_edits_blocked()) return;
     check_add_stroke_color_change_undo();
 
     if(drawP.layerMan.is_a_layer_being_edited()) {

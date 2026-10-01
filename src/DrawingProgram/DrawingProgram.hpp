@@ -67,6 +67,9 @@ class DrawingProgram {
         World& world;
 
         bool prevent_undo_or_redo();
+        bool workspace_edits_blocked() const;
+        bool workspace_panel_locked() const;
+        void set_workspace_lock(bool enabled);
 
         DrawingProgramCache drawCache;
         DrawingProgramLayerManager layerMan;
@@ -106,6 +109,8 @@ class DrawingProgram {
 
         std::unique_ptr<DrawingProgramToolBase> drawTool;
     private:
+        bool workspaceLocked = false, workspaceLockOptions = false;
+        DrawingProgramToolType toolBeforeWorkspaceLock = DrawingProgramToolType::BRUSH;
         bool toolPanelExpanded = false, toolPanelInitialized = false, toolPanelDragging = false, toolPanelDragMoved = false;
         InputManager::MouseDeviceType toolPanelDragDevice = InputManager::MouseDeviceType::MOUSE;
         uint32_t toolPanelDragPen = 0;
