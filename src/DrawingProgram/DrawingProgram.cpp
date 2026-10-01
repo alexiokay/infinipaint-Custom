@@ -79,8 +79,6 @@ DrawingProgram::DrawingProgram(World& initWorld):
 void DrawingProgram::on_tab_out() {
     tempMoveToolSwitch = TemporaryMoveToolSwitch::NONE;
     selection.deselect_all();
-    controls.leftClickHeld = false;
-    controls.middleClickHeld = false;
 }
 
 bool DrawingProgram::workspace_edits_blocked() const {
@@ -93,14 +91,21 @@ bool DrawingProgram::workspace_panel_locked() const {
 
 void DrawingProgram::set_workspace_lock(bool enabled) {
     if (workspaceLocked == enabled) return;
+    if (pointerDown == PointerDownState::FINGER && lastTouch && !lastTouch->fingers.empty()) {
+        auto release = lastTouch->clone();
+        release.action.type = FingerInput::ActionType::UP;
+        release.action.pos = release.fingers.front().pos;
+        release.action.fingerID = release.fingers.front().fingerID;
+        drawTool->input_finger_touch_on_canvas_callback(release);
+    }
     if (enabled) {
         // Complete the owning contact before changing input policy.
-        if (controls.leftClickHeld) {
+        if ((pointerDown == PointerDownState::MOUSE_LEFT)) {
             auto release = controls.leftPress;
             release.down = false;
             input_mouse_button_callback(release);
         }
-        controls.middleClickHeld = false;
+        pointerDown = lastTouch && !lastTouch->fingers.empty() ? PointerDownState::FINGER_DISABLED : PointerDownState::NONE;
         toolBeforeWorkspaceLock = (temporaryEraser || tempMoveToolSwitch != TemporaryMoveToolSwitch::NONE)
             ? toolTypeAfterTempMove : drawTool->get_type();
         if (world.main.toolConfig.workspaceLock.blockCanvasEdits) {
@@ -113,19 +118,17 @@ void DrawingProgram::set_workspace_lock(bool enabled) {
     } else {
         const bool restoreTool = workspace_edits_blocked();
         // End any navigation contact without letting its release reach a brush.
-        if (controls.leftClickHeld) {
+        if ((pointerDown == PointerDownState::MOUSE_LEFT)) {
             auto release = controls.leftPress;
             release.down = false;
             input_mouse_button_callback(release);
         }
-        controls.middleClickHeld = false;
+        pointerDown = lastTouch && !lastTouch->fingers.empty() ? PointerDownState::FINGER_DISABLED : PointerDownState::NONE;
         if (restoreTool) tempMoveToolSwitch = TemporaryMoveToolSwitch::NONE;
         workspaceLocked = false;
         if (restoreTool) switch_to_tool(toolBeforeWorkspaceLock, true);
     }
-    auto navigationRelease = controls.leftPress;
-    navigationRelease.down = false;
-    world.drawData.cam.input_mouse_button_on_canvas_callback(world, navigationRelease);
+    world.drawData.cam.clear_control_mode();
     toolPanelDragging = false;
     toolToSwitchToAfterUpdate.reset();
     clear_right_click_popup();
@@ -155,6 +158,19 @@ void DrawingProgram::input_drop_file_callback(const InputManager::DropCallbackAr
     }
 }
 
+std::optional<Vector2f> DrawingProgram::currently_held_down_pointer_pos() {
+    switch(pointerDown) {
+        case PointerDownState::FINGER: return world.main.input.fingerTracker.fingers[0].pos;
+        case PointerDownState::MOUSE_LEFT: return world.main.input.mouse.pos;
+        default: return std::nullopt;
+    }
+    return std::nullopt;
+}
+
+bool DrawingProgram::is_device_type_down(InputManager::MouseDeviceType deviceType) {
+    return (deviceType == InputManager::MouseDeviceType::TOUCH && pointerDown == DrawingProgram::PointerDownState::FINGER) || (deviceType != InputManager::MouseDeviceType::TOUCH && pointerDown == DrawingProgram::PointerDownState::MOUSE_LEFT);
+}
+
 void DrawingProgram::input_drop_text_callback(const InputManager::DropCallbackArgs& drop) {
     if (workspace_edits_blocked()) return;
     if(is_valid_http_url(drop.data)) {
@@ -181,68 +197,79 @@ void DrawingProgram::input_text_callback(const InputManager::TextCallbackArgs& t
     drawTool->input_text_callback(text);
 }
 
+void mouse_middle_click_zoom_callback(World& w, const InputManager::MouseButtonCallbackArgs& b);
+
+void mouse_middle_click_pan_callback(World& w, const InputManager::MouseButtonCallbackArgs& b) {
+    if(!b.down && b.button == InputManager::MouseButton::MIDDLE)
+        w.drawData.cam.clear_control_mode();
+    else if(!w.main.g.gui.mouse_pointer_obstructed() && b.down && b.button == InputManager::MouseButton::LEFT && b.deviceType == InputManager::MouseDeviceType::PEN && w.main.conf.tabletOptions.zoomWhilePenDownAndButtonHeld) {
+        w.drawData.cam.clear_control_mode();
+        w.drawData.cam.set_to_accurate_zoom_control_mode(b.pos, mouse_middle_click_zoom_callback);
+    }
+}
+
+void mouse_middle_click_zoom_callback(World& w, const InputManager::MouseButtonCallbackArgs& b) {
+    if(!b.down && b.button == InputManager::MouseButton::MIDDLE)
+        w.drawData.cam.clear_control_mode();
+    else if(!b.down && b.button == InputManager::MouseButton::LEFT) {
+        w.drawData.cam.clear_control_mode();
+        w.drawData.cam.set_to_pan_control_mode(mouse_middle_click_pan_callback);
+    }
+}
+
+void DrawingProgram::mouse_middle_click_callback(const InputManager::MouseButtonCallbackArgs& button) {
+    if(world.main.input.key(InputManager::KEY_GENERIC_LCTRL).held) {
+        world.drawData.cam.set_to_accurate_zoom_control_mode(button.pos, [](World& w, const InputManager::MouseButtonCallbackArgs& b) {
+            if(!b.down && b.button == InputManager::MouseButton::MIDDLE)
+                w.drawData.cam.clear_control_mode();
+        });
+    }
+    else {
+        world.drawData.cam.set_to_pan_control_mode(mouse_middle_click_pan_callback);
+    }
+}
+
 void DrawingProgram::input_mouse_button_callback(const InputManager::MouseButtonCallbackArgs& button) {
-    if(button.deviceType == InputManager::MouseDeviceType::TOUCH &&
-       WorkspaceLock::blocksTouch(world.main.conf.disableTouchForDrawing, workspaceLocked, world.main.toolConfig.workspaceLock) &&
-       !(workspace_edits_blocked() && (drawTool->get_type() == DrawingProgramToolType::PAN || drawTool->get_type() == DrawingProgramToolType::ZOOM)))
-        return;
+    // Only the owning input device may end the active contact.
+    if (pointerDown == PointerDownState::MOUSE_LEFT && button.button == InputManager::MouseButton::LEFT &&
 
-    // A mouse/touch release must not consume a pen stroke's eventual release.
-    if (controls.leftClickHeld && button.button == InputManager::MouseButton::LEFT &&
         (button.deviceType != controls.leftPress.deviceType ||
-         (button.deviceType == InputManager::MouseDeviceType::PEN && button.penId != controls.leftPress.penId)))
-        return;
+         (button.deviceType == InputManager::MouseDeviceType::PEN && button.penId != controls.leftPress.penId))) return;
+    switch(button.button) {
+        case InputManager::MouseButton::RIGHT:
+            if(button.down) {
 
-    auto buttonCallbacks = [&](const InputManager::MouseButtonCallbackArgs& b) {
-        drawTool->input_mouse_button_on_canvas_callback(b);
-    };
-
-    if(button.down) {
-        if(button.button == InputManager::MouseButton::RIGHT) {
-            if(!controls.leftClickHeld) {
                 if(rightClickPopupLocation.has_value())
                     clear_right_click_popup();
-                else
+                else if(!world.main.g.gui.mouse_pointer_obstructed())
                     set_right_click_popup_location(world.main.input.mouse.pos / world.main.g.final_gui_scale());
             }
-        }
-        else {
-            if(!world.main.g.gui.cursor_obstructed()) {
-                if(button.button == InputManager::MouseButton::LEFT && !controls.middleClickHeld) {
-                    if (!world.main.toolConfig.toolPanel.pinned && toolPanelExpanded) {
-                        toolPanelExpanded = false;
-                        world.main.g.gui.set_to_layout();
-                    }
-                    controls.leftClickHeld = true;
-                    controls.leftPress = button;
-                    buttonCallbacks(button);
+            break;
+        case InputManager::MouseButton::LEFT:
+            if(button.down && pointerDown == PointerDownState::NONE && !world.main.g.gui.mouse_pointer_obstructed()) {
+                if (!world.main.toolConfig.toolPanel.pinned && toolPanelExpanded) {
+                    toolPanelExpanded = false;
+                    world.main.g.gui.set_to_layout();
                 }
-                else if(button.button == InputManager::MouseButton::MIDDLE) {
-                    if(controls.leftClickHeld) {
-                        controls.leftClickHeld = false;
-                        auto leftReleaseCallback = controls.leftPress;
-                        leftReleaseCallback.clicks = 0;
-                        leftReleaseCallback.down = false;
-                        leftReleaseCallback.pos = button.pos;
-                        leftReleaseCallback.timestamp = button.timestamp;
-                        leftReleaseCallback.button = InputManager::MouseButton::LEFT;
-                        buttonCallbacks(leftReleaseCallback);
-                    }
-                    controls.middleClickHeld = true;
-                    buttonCallbacks(button);
-                }
+                controls.leftPress = button;
+                pointerDown = PointerDownState::MOUSE_LEFT;
+                drawTool->input_mouse_button_on_canvas_callback(button);
+
             }
-        }
-    }
-    else if(!button.down) {
-        if(controls.leftClickHeld && button.button == InputManager::MouseButton::LEFT) {
-            controls.leftClickHeld = false;
-            buttonCallbacks(button);
-        }
-        else if(controls.middleClickHeld && button.button == InputManager::MouseButton::MIDDLE) {
-            controls.middleClickHeld = false;
-            buttonCallbacks(button);
-        }
+            else if(!button.down && pointerDown == PointerDownState::MOUSE_LEFT) {
+                drawTool->input_mouse_button_on_canvas_callback(button);
+                pointerDown = PointerDownState::NONE;
+            }
+            break;
+        case InputManager::MouseButton::MIDDLE:
+            if(button.down && pointerDown == PointerDownState::NONE && !world.main.g.gui.mouse_pointer_obstructed()) {
+                mouse_middle_click_callback(button);
+                pointerDown = PointerDownState::MOUSE_MIDDLE;
+            }
+            else if(!button.down && pointerDown == PointerDownState::MOUSE_MIDDLE) {
+                pointerDown = PointerDownState::NONE;
+            }
+            break;
     }
 
     if(toolToSwitchToAfterUpdate) {
@@ -252,10 +279,6 @@ void DrawingProgram::input_mouse_button_callback(const InputManager::MouseButton
 }
 
 void DrawingProgram::input_mouse_motion_callback(const InputManager::MouseMotionCallbackArgs& motion) {
-    if(motion.deviceType == InputManager::MouseDeviceType::TOUCH &&
-       WorkspaceLock::blocksTouch(world.main.conf.disableTouchForDrawing, workspaceLocked, world.main.toolConfig.workspaceLock) &&
-       !(workspace_edits_blocked() && (drawTool->get_type() == DrawingProgramToolType::PAN || drawTool->get_type() == DrawingProgramToolType::ZOOM)))
-        return;
 
     drawTool->input_mouse_motion_callback(motion);
 }
@@ -377,6 +400,47 @@ void DrawingProgram::input_pen_motion_callback(const InputManager::PenMotionCall
 void DrawingProgram::input_pen_axis_callback(const InputManager::PenAxisCallbackArgs& axis) {
     pen_tool_switch_check();
     drawTool->input_pen_axis_callback(axis);
+}
+
+void DrawingProgram::input_finger_touch_callback(const FingerInput::TouchCallbackArgs& touch) {
+    lastTouch = touch.clone();
+    // The tracker retains the releasing finger during UP.
+    if (touch.action.type == FingerInput::ActionType::UP) {
+        auto& fingers = lastTouch->fingers;
+        std::erase_if(fingers, [&](const auto& f) { return f.fingerID == touch.action.fingerID; });
+    }
+    const bool navigationTool = drawTool->get_type() == DrawingProgramToolType::PAN || drawTool->get_type() == DrawingProgramToolType::ZOOM;
+    const bool touchDrawingBlocked = WorkspaceLock::blocksTouch(world.main.conf.disableTouchForDrawing, workspaceLocked, world.main.toolConfig.workspaceLock);
+    switch(pointerDown) {
+        case PointerDownState::NONE:
+            if((!touchDrawingBlocked || (workspace_edits_blocked() && navigationTool)) && touch.fingers.size() == 1 && touch.action.type == FingerInput::ActionType::DOWN && !world.main.g.gui.touch_pointer_obstructed()) {
+                clear_right_click_popup();
+                pointerDown = PointerDownState::FINGER;
+                drawTool->input_finger_touch_on_canvas_callback(touch);
+            }
+            break;
+        case PointerDownState::FINGER:
+            if(touch.fingers.size() > 1) {
+                drawTool->cancel_finger_touch_callback(touch);
+                pointerDown = PointerDownState::FINGER_DISABLED;
+            }
+            else {
+                drawTool->input_finger_touch_on_canvas_callback(touch);
+                if(touch.fingers.size() == 1 && touch.action.type == FingerInput::ActionType::UP)
+                    pointerDown = PointerDownState::NONE;
+            }
+            break;
+        case PointerDownState::FINGER_DISABLED:
+            if(touch.fingers.size() == 1 && touch.action.type == FingerInput::ActionType::UP)
+                pointerDown = PointerDownState::NONE;
+            break;
+        default: break;
+    }
+
+    if(toolToSwitchToAfterUpdate) {
+        switch_to_tool_ptr(std::move(toolToSwitchToAfterUpdate));
+        toolToSwitchToAfterUpdate = nullptr;
+    }
 }
 
 std::optional<InputManager::TextBoxStartInfo> DrawingProgram::get_text_box_start_info() {
@@ -768,39 +832,35 @@ void DrawingProgram::tool_options_gui(Toolbar& t) {
                     world.main.g.gui.set_to_layout();
                 }
             },
-            .fingerTouch = [this, position, isCircle](LayoutElement* l, const InputManager::FingerTouchCallbackArgs& f) {
-                if (workspace_panel_locked()) return;
+            .fingerTouch = [this, position, isCircle, available, anchorHeight](LayoutElement* l, const FingerInput::TouchCallbackArgs& f) {
+
                 if (toolPanelDragging && toolPanelDragDevice != InputManager::MouseDeviceType::TOUCH) return;
-                if (f.fingerDownCount > 1) { toolPanelDragging = false; return; }
-                if (f.down && l->mouseHovering) {
+                if (f.fingers.size() > 1) { toolPanelDragging = false; return; }
+                if (f.action.type == FingerInput::ActionType::DOWN && l->mouseHovering) {
                     toolPanelDragging = true;
                     toolPanelDragDevice = InputManager::MouseDeviceType::TOUCH;
-                    toolPanelDragFinger = f.fingerID;
-                    toolPanelDragStart = f.pos;
+                    toolPanelDragFinger = f.action.fingerID;
+                    toolPanelDragStart = f.action.pos;
                     toolPanelStartPosition = position;
                     toolPanelDragMoved = false;
-                } else if (!f.down && f.fingerID == toolPanelDragFinger) {
+                } else if (toolPanelDragging && f.action.type == FingerInput::ActionType::UP && f.action.fingerID == toolPanelDragFinger) {
                     if (isCircle && !toolPanelDragMoved) {
                         toolPanelExpanded = true;
                         world.main.g.gui.set_to_layout();
                     }
                     toolPanelDragging = false;
-                }
-            },
-            .fingerMotion = [this, available, anchorHeight](LayoutElement*, const InputManager::FingerMotionCallbackArgs& f) {
-                if (workspace_panel_locked()) return;
-                if (!toolPanelDragging || toolPanelDragDevice != InputManager::MouseDeviceType::TOUCH) return;
-                if (f.fingerDownCount != 1) { toolPanelDragging = false; return; }
-                if (f.fingerID != toolPanelDragFinger) return;
-                if ((f.pos - toolPanelDragStart).norm() > 6.0f) {
+                } else if (toolPanelDragging && f.action.type == FingerInput::ActionType::MOVE && f.action.fingerID == toolPanelDragFinger) {
+                if ((f.action.pos - toolPanelDragStart).norm() > 6.0f) {
+
                     toolPanelDragMoved = true;
                 }
                 if (toolPanelDragMoved) {
-                    const auto p = toolPanelStartPosition + f.pos - toolPanelDragStart;
+                    const auto p = toolPanelStartPosition + f.action.pos - toolPanelDragStart;
                     auto& prefs = world.main.toolConfig.toolPanel;
                     prefs.x = UIControlGeometry::panelFraction(available.x(), p.x());
                     prefs.y = UIControlGeometry::panelFraction(anchorHeight, std::clamp(p.y(), 0.0f, available.y()));
                     world.main.g.gui.set_to_layout();
+                }
                 }
             }
         };

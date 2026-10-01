@@ -376,6 +376,7 @@ void ScrollArea::update() {
 
 void ScrollArea::input_mouse_wheel_callback(const InputManager::MouseWheelCallbackArgs& wheel) {
     if(mouseHovering || (xScrollbar.scrollbar && xScrollbar.scrollbar->mouseHovering) || (yScrollbar.scrollbar && yScrollbar.scrollbar->mouseHovering)) {
+        scrollAreaMotion = scrollAreaMotionMax = {0.0f, 0.0f};
         Vector2f oldScrollOffset = scrollOffset;
 
         if(opts.scrollVertical) {
@@ -456,12 +457,14 @@ void ScrollArea::input_mouse_motion_callback(const InputManager::MouseMotionCall
     }
 }
 
-void ScrollArea::input_finger_touch_callback(const InputManager::FingerTouchCallbackArgs& touch) {
+void ScrollArea::input_finger_touch_callback(const FingerInput::TouchCallbackArgs& touch) {
+    if (touch.action.type == FingerInput::ActionType::DOWN || touch.action.type == FingerInput::ActionType::UP) {
+
     bool oldScrollAreaHeld = scrollAreaHeld;
-    scrollAreaHeld = mouseHovering && touch.down;
+    scrollAreaHeld = mouseHovering && (touch.action.type == FingerInput::ActionType::DOWN);
     if(scrollAreaHeld) {
         scrollAreaMotionMax = scrollAreaMotion = {0.0f, 0.0f};
-        touchScrollStartPos = touch.pos;
+        touchScrollStartPos = touch.action.pos;
         touchScrollMoved = false;
     }
     else if(oldScrollAreaHeld) {
@@ -476,12 +479,12 @@ void ScrollArea::input_finger_touch_callback(const InputManager::FingerTouchCall
         }
         touchScrollMoved = false;
     }
-}
 
-void ScrollArea::input_finger_motion_callback(const InputManager::FingerMotionCallbackArgs& motion) {
+    } else if (touch.action.type == FingerInput::ActionType::MOVE) {
+
     if(scrollAreaHeld) {
         if(!touchScrollMoved) {
-            Vector2f diff = motion.pos - touchScrollStartPos;
+            Vector2f diff = touch.action.pos - touchScrollStartPos;
             if(opts.scrollVertical && !opts.scrollHorizontal) {
                 if(std::abs(diff.y()) > 8.0f && std::abs(diff.y()) >= std::abs(diff.x()))
                     touchScrollMoved = true;
@@ -493,7 +496,7 @@ void ScrollArea::input_finger_motion_callback(const InputManager::FingerMotionCa
             }
         }
         if(touchScrollMoved) {
-            scrollAreaMotion = {opts.scrollHorizontal ? motion.move.x() : 0.0f, opts.scrollVertical ? motion.move.y() : 0.0f};
+            scrollAreaMotion = {opts.scrollHorizontal ? touch.action.motion.x() : 0.0f, opts.scrollVertical ? touch.action.motion.y() : 0.0f};
             if(std::fabs(scrollAreaMotion.x()) > std::fabs(scrollAreaMotionMax.x()))
                 scrollAreaMotionMax.x() = scrollAreaMotion.x();
             if(std::fabs(scrollAreaMotion.y()) > std::fabs(scrollAreaMotionMax.y()))
@@ -507,6 +510,9 @@ void ScrollArea::input_finger_motion_callback(const InputManager::FingerMotionCa
                 gui.set_to_layout();
         }
     }
+
+    }
 }
 
 }
+

@@ -71,7 +71,8 @@ class FillAndFlatOverlapWiring(unittest.TestCase):
         self.assertIn("touchScrollStartPos", scroll_cpp)
         btn_cpp = source("src/GUIStuff/Elements/SelectableButton.cpp")
         self.assertIn("penStartPos", btn_cpp)
-        self.assertIn("touchStartPos", btn_cpp)
+        self.assertIn("FingerInput::GestureType::TAP", btn_cpp)
+        self.assertIn("inDynamicArea || !mouseHovering", btn_cpp)
 
     def test_toolbar_active_color_unification(self):
         toolbar = source("src/Toolbar.cpp")

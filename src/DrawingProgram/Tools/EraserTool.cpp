@@ -85,7 +85,7 @@ void EraserTool::right_click_popup_gui(Toolbar& t, Vector2f popupPos) {
 
 void EraserTool::input_mouse_button_on_canvas_callback(const InputManager::MouseButtonCallbackArgs& button) {
     if(button.button == InputManager::MouseButton::LEFT) {
-        if(button.down && !isErasing && !drawP.world.main.g.gui.cursor_obstructed()) {
+        if(button.down && !isErasing) {
             auto relativeWidthResult = drawP.world.main.toolConfig.get_relative_width_stroke_size(drawP, drawP.world.drawData.cam.c.inverseScale);
             if(!relativeWidthResult.first.has_value()) {
                 drawP.world.main.toolConfig.print_relative_width_fail_message(relativeWidthResult.second);
@@ -221,7 +221,7 @@ void EraserTool::reset_erasing_stroke() {
         auto lastBrushPoint = genData.brushPoints.back();
         genData.brushPoints.clear();
         genData.brushPoints.emplace_back(lastBrushPoint);
-        genData.prevPointUnaltered = genData.coords.get_mouse_pos(drawP.world);
+        genData.prevPointUnaltered = {0.0f, 0.0f};
         genData.addedTemporaryPoint = false;
     }
 }
@@ -313,7 +313,7 @@ void EraserTool::commit_data() {
 }
 
 void EraserTool::tool_update() {
-    if(!drawP.world.main.g.gui.cursor_obstructed())
+    if(!drawP.world.main.g.gui.mouse_pointer_obstructed())
         drawP.world.main.input.hideCursor = true;
 
     using namespace BrushComponentCode;
@@ -322,7 +322,7 @@ void EraserTool::tool_update() {
 }
 
 bool EraserTool::prevent_undo_or_redo() {
-    return drawP.controls.leftClickHeld;
+    return isErasing;
 }
 
 void EraserTool::draw(SkCanvas* canvas, const DrawData& drawData) {
@@ -331,7 +331,8 @@ void EraserTool::draw(SkCanvas* canvas, const DrawData& drawData) {
     if (drawData.takingScreenshot || !ToolCursor::visible(main.window.windowFocus,
         main.window.mouseFocus, input.isTouchDevice, input.pen.inProximity,
         input.pen.isDown, isErasing)) return;
-    if (main.g.gui.cursor_obstructed() && !isErasing) return;
+    if (main.g.gui.mouse_pointer_obstructed() && !isErasing) return;
+
 
     const bool usePenPosition = isErasing ? genData.deviceType == InputManager::MouseDeviceType::PEN : (input.pen.inProximity || input.pen.isDown);
     const Vector2f pos = usePenPosition ? input.pen.previousPos : input.mouse.pos;

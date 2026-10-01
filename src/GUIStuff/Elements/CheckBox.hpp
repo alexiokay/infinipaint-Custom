@@ -29,8 +29,8 @@ class CheckBox : public Element {
         virtual void clay_draw(SkCanvas* canvas, UpdateInputData& io, Clay_RenderCommand* command, bool skiaAA) override;
         virtual void input_mouse_button_callback(const InputManager::MouseButtonCallbackArgs& button) override;
         virtual void input_mouse_motion_callback(const InputManager::MouseMotionCallbackArgs& motion) override;
-        virtual void input_finger_touch_callback(const InputManager::FingerTouchCallbackArgs& touch) override;
-        virtual void input_finger_motion_callback(const InputManager::FingerMotionCallbackArgs& motion) override;
+        virtual void input_finger_touch_callback(const FingerInput::TouchCallbackArgs& touch) override;
+
         virtual void update() override;
 
         void layout(const Clay_ElementId& id, const std::function<bool()>& isTicked, const std::function<void()>& onClick, std::string_view label = {});
@@ -38,11 +38,12 @@ class CheckBox : public Element {
         static constexpr float CHECKBOX_ANIMATION_TIME = 0.3;
         float hoverAnimation = 0.0;
         bool oldIsTicked = false;
+        bool touchHoverAnim = false;
+        bool mouseHoverAnim = false;
         bool isHeld = false;
-        Vector2f touchStartPos{0.0f, 0.0f};
-        bool hasMovedTouch = false;
         Vector2f penStartPos{0.0f, 0.0f};
         bool hasMovedPen = false;
+
         bool is_hovering_animation();
         std::function<bool()> isTicked;
         std::function<void()> onClick;
