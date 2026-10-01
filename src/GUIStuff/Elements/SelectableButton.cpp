@@ -33,6 +33,7 @@ void SelectableButton::layout(const Clay_ElementId& id, const Data& d) {
     SkColor4f backgroundColor;
 
     instantResponse = d.instantResponse;
+    inDynamicArea = gui.is_dynamic_area();
     onClick = [&, this, d] {
         if(d.onClickButton)
             d.onClickButton(this);
@@ -159,48 +160,32 @@ void SelectableButton::input_mouse_motion_callback(const InputManager::MouseMoti
     }
 }
 
-void SelectableButton::input_finger_touch_callback(const InputManager::FingerTouchCallbackArgs& touch) {
-    bool oldIsHeld = isHeld;
-    bool oldIsHovering = isHovering;
-    if(touch.down) {
-        isHeld = mouseHovering;
-        isHovering = false;
-        touchStartPos = touch.pos;
-        hasMovedTouch = false;
-        if(isHeld && instantResponse)
-            gui.set_post_callback_func(onClick);
-        gui.set_to_layout();
-    }
-    else {
-        isHeld = false;
-        isHovering = false;
-        if((mouseHovering || oldIsHeld) && oldIsHeld && !hasMovedTouch) {
-            if(!instantResponse)
+void SelectableButton::input_finger_touch_callback(const FingerInput::TouchCallbackArgs& touch) {
+    if(!instantResponse && mouseHovering && touch.gesture && touch.gesture->get_type() == FingerInput::GestureType::TAP)
+        gui.set_post_callback_func(onClick);
+    switch(touch.action.type) {
+        case FingerInput::ActionType::UP:
+        case FingerInput::ActionType::DOWN: {
+            bool oldIsHeld = isHeld;
+            bool oldIsHovering = isHovering;
+            isHeld = mouseHovering && touch.action.type == FingerInput::ActionType::DOWN;
+            isHovering = mouseHovering && touch.action.type == FingerInput::ActionType::DOWN;
+            if(isHeld && instantResponse)
                 gui.set_post_callback_func(onClick);
-            gui.set_to_layout();
+            if(oldIsHovering != isHovering || isHeld != oldIsHeld)
+                gui.set_to_layout();
+            break;
         }
-        else if(oldIsHovering || oldIsHeld)
-            gui.set_to_layout();
-        hasMovedTouch = false;
-    }
-}
+        case FingerInput::ActionType::MOVE: {
+            if((isHovering || isHeld) && (inDynamicArea || !mouseHovering)) {
+                isHovering = false;
+                isHeld = false;
+                gui.set_to_layout();
+            }
+            break;
+        }
+        case FingerInput::ActionType::NONE: break;
 
-void SelectableButton::input_finger_motion_callback(const InputManager::FingerMotionCallbackArgs& motion) {
-    if(isHeld) {
-        if((motion.pos - touchStartPos).norm() > 8.0f) {
-            hasMovedTouch = true;
-            isHeld = false;
-            isHovering = false;
-            gui.set_to_layout();
-            return;
-        }
-    }
-    if(!mouseHovering) {
-        if(isHovering || isHeld) {
-            isHovering = false;
-            isHeld = false;
-            gui.set_to_layout();
-        }
     }
 }
 

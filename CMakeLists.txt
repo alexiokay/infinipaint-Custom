@@ -41,6 +41,7 @@ set(sources "src/main.cpp"
             "src/WorldGrid.cpp"
             "src/TimePoint.cpp"
             "src/InputManager.cpp"
+            "src/FingerInputTracker.cpp"
             "src/UndoManager.cpp"
             "src/CanvasTheme.cpp"
             "src/DrawCamera.cpp"
@@ -386,6 +387,12 @@ if(INFINIPAINT_GEOMETRY_TESTS)
     add_executable(skia_geometry tests/skia_geometry.cpp)
     target_include_directories(skia_geometry PRIVATE "include")
     target_link_libraries(skia_geometry PRIVATE skia-infinipaint::skia-infinipaint)
+    # The production serializer includes SDL-backed helper declarations.
+    if(ANDROID OR LINUX)
+        target_link_libraries(skia_geometry PRIVATE SDL3::SDL3)
+    else()
+        target_link_libraries(skia_geometry PRIVATE sdl-infinipaint::sdl-infinipaint)
+    endif()
     add_test(NAME skia_geometry COMMAND skia_geometry)
 endif()
 

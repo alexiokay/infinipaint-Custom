@@ -55,9 +55,9 @@ template <typename T> class NumberSlider : public Element {
         }
 
         virtual void update() override {
-            if(!dd.isHeld && data)
+            if(!dd.is_held() && data)
                 dd.val = *data;
-            smooth_two_way_animation_time(dd.holdAnimation, gui.io.deltaTime, dd.isHeld, HOLD_ANIMATION_TIME);
+            smooth_two_way_animation_time(dd.holdAnimation, gui.io.deltaTime, dd.is_held(), HOLD_ANIMATION_TIME);
             smooth_two_way_animation_time(dd.hoverAnimation, gui.io.deltaTime, mouseHovering && !gui.last_interaction_is_touch(), gui.io.theme->hoverExpandTime);
             if(oldDD != dd) {
                 gui.invalidate_draw_element(this, {
@@ -132,7 +132,7 @@ template <typename T> class NumberSlider : public Element {
                         penIsInteracting = mouseHovering;
                     } else {
                         if(penIsDragging) {
-                            dd.isHeld = false;
+                            dd.isMouseHeld = false;
                             penIsDragging = false;
                             penIsInteracting = false;
                             gui.set_post_callback_func([&] {
@@ -146,7 +146,7 @@ template <typename T> class NumberSlider : public Element {
                                     if(config.onRelease) config.onRelease();
                                 });
                             }
-                            dd.isHeld = false;
+                            dd.isMouseHeld = false;
                             penIsInteracting = false;
                             gui.set_to_layout();
                         }
@@ -156,14 +156,14 @@ template <typename T> class NumberSlider : public Element {
                 return;
             }
 
-            bool oldIsHeld = dd.isHeld;
-            dd.isHeld = mouseHovering && button.button == InputManager::MouseButton::LEFT && button.down;
-            if(oldIsHeld && !dd.isHeld) {
+            bool oldIsHeld = dd.isMouseHeld;
+            dd.isMouseHeld = mouseHovering && button.button == InputManager::MouseButton::LEFT && button.down;
+            if(oldIsHeld && !dd.isMouseHeld) {
                 gui.set_post_callback_func([&] {
                     if(config.onRelease) config.onRelease();
                 });
             }
-            else if(dd.isHeld && boundingBox.has_value())
+            else if(dd.isMouseHeld && boundingBox.has_value())
                 update_slider_pos(button.pos, true);
         }
 
@@ -180,14 +180,14 @@ template <typename T> class NumberSlider : public Element {
                     if(dy > 7.0f && dy > dx) {
                         penScrollingAway = true;
                         penIsInteracting = false;
-                        dd.isHeld = false;
+                        dd.isMouseHeld = false;
                         if(data) { *data = penInitialVal; dd.val = penInitialVal; }
                         gui.set_to_layout();
                         return;
                     }
                     if(dx > 5.0f && dx >= dy) {
                         penIsDragging = true;
-                        dd.isHeld = true;
+                        dd.isMouseHeld = true;
                         update_slider_pos(motion.pos, true);
                         gui.set_to_layout();
                         return;
@@ -198,20 +198,25 @@ template <typename T> class NumberSlider : public Element {
                 return;
             }
 
-            if(dd.isHeld && boundingBox.has_value())
+            if(dd.isMouseHeld && boundingBox.has_value())
                 update_slider_pos(motion.pos, false);
         }
 
-        virtual void input_finger_touch_callback(const InputManager::FingerTouchCallbackArgs& touch) override {
-            if(touch.down) {
-                touchStartPos = touch.pos;
+        virtual void input_finger_touch_callback(const FingerInput::TouchCallbackArgs& touch) override {
+            if (touch.fingers.size() != 1) {
+                touchIsInteracting = touchIsDragging = dd.isTouchHeld = false;
+                return;
+            }
+            if (touch.action.type == FingerInput::ActionType::DOWN || touch.action.type == FingerInput::ActionType::UP) {
+            if(touch.action.type == FingerInput::ActionType::DOWN) {
+                touchStartPos = touch.action.pos;
                 if(data) touchInitialVal = *data;
                 touchScrollingAway = false;
                 touchIsDragging = false;
                 touchIsInteracting = mouseHovering;
             } else {
                 if(touchIsDragging) {
-                    dd.isHeld = false;
+                    dd.isTouchHeld = false;
                     touchIsDragging = false;
                     touchIsInteracting = false;
                     gui.set_post_callback_func([&] {
@@ -219,25 +224,23 @@ template <typename T> class NumberSlider : public Element {
                     });
                     gui.set_to_layout();
                 } else if(touchIsInteracting && !touchScrollingAway) {
-                    if((touch.pos - touchStartPos).norm() <= 7.0f && boundingBox.has_value()) {
-                        update_slider_pos(touch.pos, true);
+                    if((touch.action.pos - touchStartPos).norm() <= 7.0f && boundingBox.has_value()) {
+                        update_slider_pos(touch.action.pos, true);
                         gui.set_post_callback_func([&] {
                             if(config.onRelease) config.onRelease();
                         });
                     }
-                    dd.isHeld = false;
+                    dd.isTouchHeld = false;
                     touchIsInteracting = false;
                     gui.set_to_layout();
                 }
                 touchScrollingAway = false;
             }
-        }
-
-        virtual void input_finger_motion_callback(const InputManager::FingerMotionCallbackArgs& motion) override {
+            } else if (touch.action.type == FingerInput::ActionType::MOVE) {
             if(!touchIsInteracting || touchScrollingAway || !boundingBox.has_value())
                 return;
 
-            Vector2f diff = motion.pos - touchStartPos;
+            Vector2f diff = touch.action.pos - touchStartPos;
             float dx = std::abs(diff.x());
             float dy = std::abs(diff.y());
 
@@ -245,20 +248,21 @@ template <typename T> class NumberSlider : public Element {
                 if(dy > 7.0f && dy > dx) {
                     touchScrollingAway = true;
                     touchIsInteracting = false;
-                    dd.isHeld = false;
+                    dd.isTouchHeld = false;
                     if(data) { *data = touchInitialVal; dd.val = touchInitialVal; }
                     gui.set_to_layout();
                     return;
                 }
                 if(dx > 5.0f && dx >= dy) {
                     touchIsDragging = true;
-                    dd.isHeld = true;
-                    update_slider_pos(motion.pos, true);
+                    dd.isTouchHeld = true;
+                    update_slider_pos(touch.action.pos, true);
                     gui.set_to_layout();
                     return;
                 }
             } else {
-                update_slider_pos(motion.pos, false);
+                update_slider_pos(touch.action.pos, false);
+            }
             }
         }
 
@@ -288,7 +292,9 @@ template <typename T> class NumberSlider : public Element {
         T* data = nullptr;
 
         struct DisplayData {
-            bool isHeld = false;
+            bool isTouchHeld = false;
+            bool isMouseHeld = false;
+
             T val = 0.0;
 
             T minData = 0.0;
@@ -297,6 +303,7 @@ template <typename T> class NumberSlider : public Element {
             float hoverAnimation = 0.0;
             float holdAnimation = 0.0;
 
+            bool is_held() { return isMouseHeld || isTouchHeld; }
             bool operator!=(const DisplayData&) const = default;
             bool operator==(const DisplayData&) const = default;
         };

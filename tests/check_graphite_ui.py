@@ -121,16 +121,16 @@ class GraphiteUI(unittest.TestCase):
 
     def test_touch_scroll_drag_protection_and_color_selection(self):
         checkbox = source("src/GUIStuff/Elements/CheckBox.cpp")
-        self.assertIn("hasMovedTouch", checkbox)
-        self.assertIn("input_finger_motion_callback", checkbox)
-        self.assertIn("(motion.pos - touchStartPos).norm() > 8.0f", checkbox)
+        self.assertIn("FingerInput::GestureType::TAP", checkbox)
+        self.assertNotIn("input_finger_motion_callback", checkbox)
 
         radio = source("src/GUIStuff/Elements/RadioButton.cpp")
-        self.assertIn("hasMovedTouch", radio)
-        self.assertIn("input_finger_motion_callback", radio)
+        self.assertIn("FingerInput::GestureType::TAP", radio)
+        self.assertNotIn("input_finger_motion_callback", radio)
 
         button = source("src/GUIStuff/Elements/SelectableButton.cpp")
-        self.assertIn("hasMovedTouch", button)
+        self.assertIn("FingerInput::GestureType::TAP", button)
+        self.assertIn("inDynamicArea || !mouseHovering", button)
 
         toolbar = source("src/Toolbar.cpp")
         self.assertIn("const bool isSelected =", toolbar)

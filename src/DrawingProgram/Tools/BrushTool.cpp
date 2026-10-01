@@ -59,7 +59,7 @@ void BrushTool::erase_component(CanvasComponentContainer::ObjInfo* erasedComp) {
 void BrushTool::input_mouse_button_on_canvas_callback(const InputManager::MouseButtonCallbackArgs& button) {
     if(button.button == InputManager::MouseButton::LEFT) {
         auto& toolConfig = drawP.world.main.toolConfig;
-        if(button.down && drawP.layerMan.is_a_layer_being_edited() && !objInfoBeingEdited && !drawP.world.main.g.gui.cursor_obstructed()) {
+        if(button.down && drawP.layerMan.is_a_layer_being_edited() && !objInfoBeingEdited) {
             auto relativeWidthResult = drawP.world.main.toolConfig.get_relative_width_stroke_size(drawP, drawP.world.drawData.cam.c.inverseScale);
             if(!relativeWidthResult.first.has_value()) {
                 drawP.world.main.toolConfig.print_relative_width_fail_message(relativeWidthResult.second);
@@ -83,6 +83,16 @@ void BrushTool::input_mouse_button_on_canvas_callback(const InputManager::MouseB
             BrushComponentCode::finish_pen(drawP, genData, button);
             commit_stroke();
         }
+    }
+}
+
+void BrushTool::cancel_finger_touch_callback(const FingerInput::TouchCallbackArgs& touch) {
+    if(objInfoBeingEdited) {
+        NetworkingObjects::NetObjOwnerPtr<CanvasComponentContainer>& containerPtr = objInfoBeingEdited->obj;
+        auto& components = containerPtr->parentLayer->get_layer().components;
+        components->erase(components, containerPtr->objInfo);
+        objInfoBeingEdited = nullptr;
+        commitUpdate = false;
     }
 }
 
@@ -135,7 +145,8 @@ void BrushTool::input_pen_axis_callback(const InputManager::PenAxisCallbackArgs&
 
 void BrushTool::tool_update() {
     if (objInfoBeingEdited && BrushComponentCode::pen_mapping_changed(drawP, genData)) commit_stroke();
-    if(!drawP.world.main.g.gui.cursor_obstructed())
+    if(!drawP.world.main.g.gui.mouse_pointer_obstructed())
+
         drawP.world.main.input.hideCursor = true;
 
     if(commitUpdate && objInfoBeingEdited)
@@ -337,7 +348,7 @@ void BrushTool::draw(SkCanvas* canvas, const DrawData& drawData) {
     if (drawData.takingScreenshot || !ToolCursor::visible(main.window.windowFocus,
         main.window.mouseFocus, input.isTouchDevice, input.pen.inProximity,
         input.pen.isDown, objInfoBeingEdited != nullptr)) return;
-    if (main.g.gui.cursor_obstructed()) return;
+    if (main.g.gui.mouse_pointer_obstructed()) return;
     const bool usePenPosition = objInfoBeingEdited ? genData.deviceType == InputManager::MouseDeviceType::PEN : (input.pen.inProximity || input.pen.isDown);
     const Vector2f pos = usePenPosition ? input.pen.previousPos : input.mouse.pos;
     if (pos.x() < 0 || pos.y() < 0 || pos.x() >= main.window.size.x() || pos.y() >= main.window.size.y()) return;
@@ -348,4 +359,5 @@ void BrushTool::draw(SkCanvas* canvas, const DrawData& drawData) {
         genData.brushPoints.back().width : diameter * genData.penWidth;
     ToolCursor::draw(canvas, pos.x(), pos.y(), ToolCursor::radius(diameter),
         SDL_GetWindowDisplayScale(main.window.sdlWindow));
+
 }
