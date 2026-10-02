@@ -521,6 +521,27 @@ void DrawingProgram::send_transforms_for(const std::vector<CanvasComponentContai
     }
 }
 
+void DrawingProgram::workspace_lock_toolbar_gui() {
+    using namespace GUIStuff;
+    using namespace ElementHelpers;
+    auto& gui = world.main.g.gui;
+    // Both states occupy the same icon-sized slots: toggling must not reflow the UI.
+    svg_icon_button(gui, "Workspace lock",
+        workspaceLocked ? "data/icons/workspace-locked.svg" : "data/icons/workspace-unlocked.svg", {
+            .drawType = SelectableButton::DrawType::TRANSPARENT_ALL,
+            .isSelected = workspaceLocked,
+            .onClick = [this] { set_workspace_lock(!workspaceLocked); }
+        });
+    svg_icon_button(gui, "Workspace lock options", "data/icons/RemixIcon/settings-3-line.svg", {
+        .drawType = SelectableButton::DrawType::TRANSPARENT_ALL,
+        .isSelected = workspaceLockOptions,
+        .onClick = [this] {
+            workspaceLockOptions = !workspaceLockOptions;
+            world.main.g.gui.set_to_layout();
+        }
+    });
+}
+
 void DrawingProgram::toolbar_gui(Toolbar& t) {
     using namespace GUIStuff;
     using namespace ElementHelpers;
@@ -552,18 +573,6 @@ void DrawingProgram::toolbar_gui(Toolbar& t) {
                     });
                 };
 
-                text_button_with_icon(gui, "Workspace lock", workspaceLocked ? "data/icons/workspace-locked.svg" : "data/icons/workspace-unlocked.svg",
-                    workspaceLocked ? (workspace_edits_blocked() ? "View only" : "Locked") : "Lock", {
-                        .isSelected = workspaceLocked,
-                        .onClick = [this] { set_workspace_lock(!workspaceLocked); }
-                    });
-                text_button(gui, "Workspace lock options", "Lock options", {
-                    .isSelected = workspaceLockOptions,
-                    .onClick = [this] {
-                        workspaceLockOptions = !workspaceLockOptions;
-                        world.main.g.gui.set_to_layout();
-                    }
-                });
                 tool_button("Brush Toolbar Button", "data/icons/brush.svg", DrawingProgramToolType::BRUSH);
                 tool_button("Eraser Toolbar Button", "data/icons/eraser.svg", DrawingProgramToolType::ERASER);
                 tool_button("Fill Toolbar Button", "data/icons/fill.svg", DrawingProgramToolType::FILL);

@@ -1,6 +1,8 @@
 # Workspace lock
 
-The toolbar's padlock toggles the lock. "Lock options" opens its configuration.
+The top toolbar's padlock toggles the lock. The adjacent settings icon opens
+its configuration. Both use fixed-size icon slots, so toggling the lock does
+not resize the left tool rail or its rotation wheel.
 Default behavior is view-only: pan/zoom are available, canvas/layer editing and
 undo/redo are blocked, and the previous tool is restored after unlocking.
 The inspector shows "Workspace locked" and offers an explicit unlock action.
@@ -46,3 +48,5 @@ Manual acceptance after CI compilation:
 6. Choose only panel-position locking; drawing works, panel drags do not.
 7. Save/restart: choices remain, active lock does not. Test switching document
    tabs during contacts and locking during an in-progress stroke/navigation drag.
+8. Toggle the lock in both a small and maximized window: top controls keep their
+   size and position, and the left rail and rotation wheel keep their narrow width.

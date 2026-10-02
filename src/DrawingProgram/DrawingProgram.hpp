@@ -45,6 +45,7 @@ class DrawingProgram {
         DrawingProgram(World& initWorld);
         void server_init_no_file();
         void toolbar_gui(Toolbar& t);
+        void workspace_lock_toolbar_gui();
         void tool_options_gui(Toolbar& t);
         void right_click_popup_gui(Toolbar& t);
         void update();

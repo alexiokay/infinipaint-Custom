@@ -527,6 +527,7 @@ void Toolbar::top_toolbar() {
             });
 
             if(!main.world->clientStillConnecting) {
+                main.world->drawProg.workspace_lock_toolbar_gui();
                 if(main.world->netObjMan.is_connected()) {
                     icon_button_top_toolbar("Player List Toggle Button", "data/icons/list.svg", playerMenuOpen, [&] {
                         playerMenuOpen = !playerMenuOpen;

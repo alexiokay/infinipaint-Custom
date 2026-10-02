@@ -3,6 +3,17 @@ from pathlib import Path
 import unittest
 ROOT = Path(__file__).resolve().parents[1]
 class WorkspaceLockWiring(unittest.TestCase):
+    def test_lock_controls_use_fixed_icon_slots_in_top_bar(self):
+        text = (ROOT / "src/DrawingProgram/DrawingProgram.cpp").read_text(encoding="utf-8")
+        controls = text.split("void DrawingProgram::workspace_lock_toolbar_gui()", 1)[1].split("void DrawingProgram::toolbar_gui", 1)[0]
+        self.assertEqual(controls.count("svg_icon_button("), 2)
+        self.assertNotIn("text_button", controls)
+        rail = text.split("void DrawingProgram::toolbar_gui", 1)[1].split("\nvoid ", 1)[0]
+        self.assertNotIn('"Workspace lock', rail)
+        toolbar = (ROOT / "src/Toolbar.cpp").read_text(encoding="utf-8")
+        top = toolbar.split("void Toolbar::top_toolbar()", 1)[1].split("\nvoid ", 1)[0]
+        self.assertIn("main.world->drawProg.workspace_lock_toolbar_gui();", top)
+
     def test_saved_setting_is_not_overwritten(self):
         text = (ROOT / "src/DrawingProgram/DrawingProgram.cpp").read_text(encoding="utf-8")
         self.assertNotIn("conf.disableTouchForDrawing =", text)
