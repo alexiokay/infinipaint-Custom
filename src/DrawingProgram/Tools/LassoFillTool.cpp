@@ -46,11 +46,8 @@ void LassoFillTool::gui_toolbox(Toolbar& t) {
     using namespace ElementHelpers;
     auto& gui = drawP.world.main.g.gui;
     gui.new_id("lasso fill tool", [&] {
-        tool_inspector(gui, "Fill Tool", [&] {
-            inspector_section(gui, "COLOR", [&] {
-                t.quick_colors();
-            });
-            inspector_hint(gui, "Draw a loop with pen or finger to fill the enclosed area flat with color.");
+        tool_inspector(gui, "Lasso Fill", [&] {
+            inspector_hint(gui, "Draw a loop and release to create a filled shape. Uses the foreground color in the left toolbar. This is not a click-to-fill bucket.");
         });
     });
 }
@@ -60,8 +57,8 @@ void LassoFillTool::gui_phone_toolbox(PhoneDrawingProgramScreen&) {
     using namespace ElementHelpers;
     auto& gui = drawP.world.main.g.gui;
     gui.new_id("lasso fill tool", [&] {
-        tool_inspector(gui, "Fill Tool", [&] {
-            inspector_hint(gui, "Draw a loop with pen or finger to fill the enclosed area flat with color.");
+        tool_inspector(gui, "Lasso Fill", [&] {
+            inspector_hint(gui, "Draw a loop and release to create a filled shape using the foreground color. This is not a click-to-fill bucket.");
         });
     });
 }

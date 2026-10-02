@@ -380,12 +380,9 @@ void Toolbar::save_as_func() {
 }
 
 void Toolbar::add_recent_color(const Vector3f& color) {
-    auto it = std::find_if(recentColors.begin(), recentColors.end(), [&](const Vector3f& c) {
+    std::erase_if(recentColors, [&](const Vector3f& c) {
         return (c - color).norm() < 0.02f;
     });
-    if (it != recentColors.end()) {
-        recentColors.erase(it);
-    }
     recentColors.insert(recentColors.begin(), color);
     if (recentColors.size() > 8) {
         recentColors.pop_back();
@@ -434,9 +431,6 @@ void Toolbar::quick_colors() {
         .onClickButton = [this, selected](SelectableButton* b) {
             color_selector_left(b, selected, {
                 .onChange = [this] {
-                    if (auto* c = main.world->drawProg.get_foreground_color_ptr()) {
-                        add_recent_color(Vector3f{c->x(), c->y(), c->z()});
-                    }
                     main.g.gui.set_to_layout();
                 }
             });
@@ -1100,6 +1094,15 @@ void Toolbar::drawing_program_gui() {
 
 void Toolbar::color_picker_window(const char* id, Vector4f** color, GUIStuff::Element* b, const ColorSelectorData& colorSelectorData) {
     auto& gui = main.g.gui;
+    auto* selectedColor = *color;
+    // Remember a completed picker gesture, never its intermediate drag samples.
+    auto onDeselect = [this, selectedColor, colorSelectorData] {
+        if(main.world && selectedColor == main.world->drawProg.get_foreground_color_ptr()) {
+            add_recent_color(Vector3f{selectedColor->x(), selectedColor->y(), selectedColor->z()});
+            main.g.gui.set_to_layout();
+        }
+        if(colorSelectorData.onDeselect) colorSelectorData.onDeselect();
+    };
 
     CLAY_AUTO_ID({
         .layout = {
@@ -1121,11 +1124,13 @@ void Toolbar::color_picker_window(const char* id, Vector4f** color, GUIStuff::El
                 color_picker_items(gui, "colorpicker", *color, {
                     .onEdit = colorSelectorData.onChange,
                     .onSelect = colorSelectorData.onSelect,
-                    .onDeselect = colorSelectorData.onDeselect,
+                    .onDeselect = onDeselect,
                 });
-                color_palette("colorpickerpalette", *color, [colorSelectorData] {
+                color_palette("colorpickerpalette", *color, [this, selectedColor, colorSelectorData] {
                     if(colorSelectorData.onSelect) colorSelectorData.onSelect();
                     if(colorSelectorData.onChange) colorSelectorData.onChange();
+                    if(main.world && selectedColor == main.world->drawProg.get_foreground_color_ptr())
+                        add_recent_color(Vector3f{selectedColor->x(), selectedColor->y(), selectedColor->z()});
                     if(colorSelectorData.onDeselect) colorSelectorData.onDeselect();
                 });
             }

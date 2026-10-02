@@ -8,6 +8,18 @@ def source(path):
     return (ROOT / path).read_text(encoding="utf-8")
 
 class FillAndFlatOverlapWiring(unittest.TestCase):
+    def test_color_history_records_completed_picker_gestures(self):
+        toolbar = source("src/Toolbar.cpp")
+        quick = toolbar.split("void Toolbar::quick_colors()", 1)[1].split("void Toolbar::paint_popup", 1)[0]
+        change = quick.split(".onChange = [this]", 1)[1]
+        self.assertNotIn("add_recent_color", change)
+        picker = toolbar.split("void Toolbar::color_picker_window", 1)[1].split("void Toolbar::color_palette", 1)[0]
+        self.assertIn(".onDeselect = onDeselect", picker)
+        self.assertIn("selectedColor == main.world->drawProg.get_foreground_color_ptr()", picker)
+        self.assertIn("std::erase_if(recentColors", toolbar)
+        fill = source("src/DrawingProgram/Tools/LassoFillTool.cpp")
+        self.assertIn("newMesh.d.color = drawP.world.main.toolConfig.globalConf.foregroundColor", fill)
+
     def test_fill_tool_enum_and_allocation(self):
         tool_base_h = source("src/DrawingProgram/Tools/DrawingProgramToolBase.hpp")
         self.assertIn("FILL,", tool_base_h)
@@ -25,7 +37,10 @@ class FillAndFlatOverlapWiring(unittest.TestCase):
         self.assertIn('"data/icons/fill.svg"', dp)
         self.assertIn('case DrawingProgramToolType::FILL: return "Fill Tool";', dp)
         self.assertIn('case DrawingProgramToolType::FILL: return "data/icons/fill.svg";', dp)
-        self.assertIn('type == DrawingProgramToolType::FILL', dp)
+        fill = source("src/DrawingProgram/Tools/LassoFillTool.cpp")
+        self.assertNotIn("t.quick_colors()", fill)
+        self.assertIn('"Lasso Fill"', fill)
+        self.assertIn("not a click-to-fill bucket", fill)
         self.assertIn('KEY_DRAW_TOOL_FILL', dp)
 
     def test_input_manager_fill_key(self):
