@@ -17,6 +17,7 @@
  */
 
 #pragma once
+#include "../../ContactLifecycle.hpp"
 #include "Element.hpp"
 
 namespace GUIStuff {
@@ -31,6 +32,7 @@ class RotateWheel : public Element {
         virtual void input_mouse_motion_callback(const InputManager::MouseMotionCallbackArgs& motion) override;
 
     private:
+        ContactLifecycle<InputManager::MouseButtonCallbackArgs> contact;
         float wheel_start();
         float wheel_end();
         void draw_rotate_wheel(SkCanvas* canvas, UpdateInputData& io, bool skiaAA);

@@ -61,7 +61,15 @@ float RotateWheel::wheel_end() {
 }
 
 void RotateWheel::input_mouse_button_callback(const InputManager::MouseButtonCallbackArgs& button) {
-    dd.isHeld = mouseHovering && button.button == InputManager::MouseButton::LEFT && button.down;
+    if(button.button != InputManager::MouseButton::LEFT) return;
+    const bool pen = button.deviceType == InputManager::MouseDeviceType::PEN;
+    if(button.down) {
+        if(!mouseHovering || !boundingBox.has_value() || !contact.begin(button)) return;
+        dd.isHeld = true;
+    } else {
+        if(!contact.finish(button, pen)) return;
+        dd.isHeld = false;
+    }
     update_rotate_wheel_mouse_hover(button.pos);
     dd.isRotateBarHeld = dd.isRotateBarHovered && dd.isHeld;
     update_rotate_wheel_mouse(button.pos);
@@ -69,19 +77,27 @@ void RotateWheel::input_mouse_button_callback(const InputManager::MouseButtonCal
 }
 
 void RotateWheel::input_mouse_motion_callback(const InputManager::MouseMotionCallbackArgs& motion) {
+    if(contact.active() && !contact.accepts(motion,
+       motion.deviceType == InputManager::MouseDeviceType::PEN, motion.penContact)) return;
     update_rotate_wheel_mouse_hover(motion.pos);
     update_rotate_wheel_mouse(motion.pos);
     Element::input_mouse_motion_callback(motion);
 }
 
 void RotateWheel::update_rotate_wheel_mouse_hover(const Vector2f& p) {
+    if(!boundingBox.has_value()) {
+        dd.isRotateBarHovered = false;
+        return;
+    }
     float distFromCenter = vec_distance(p, boundingBox.value().center());
     dd.isRotateBarHovered = mouseHovering && distFromCenter > wheel_start() && distFromCenter < wheel_end();
 }
 
 void RotateWheel::update_rotate_wheel_mouse(const Vector2f& p) {
     if(boundingBox.has_value()) {
-        Vector2f vecFromCenter = (p - boundingBox.value().center()).normalized();
+        const Vector2f offset = p - boundingBox.value().center();
+        if(!offset.allFinite() || offset.norm() <= 0.0001f) return;
+        Vector2f vecFromCenter = offset.normalized();
         if(dd.isRotateBarHeld) {
             gui.set_post_callback_func([&, vecFromCenter] {
                 auto& rotationAngle = *rotateAngle;

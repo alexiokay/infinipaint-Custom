@@ -16,6 +16,16 @@ def luminance(rgb):
 
 
 class GraphiteUI(unittest.TestCase):
+    def test_rotation_wheel_contact_ownership_and_center_guard(self):
+        wheel = source("src/GUIStuff/Elements/RotateWheel.cpp")
+        self.assertIn("if(button.button != InputManager::MouseButton::LEFT) return;", wheel)
+        self.assertIn("contact.begin(button)", wheel)
+        self.assertIn("contact.finish(button, pen)", wheel)
+        self.assertIn("contact.accepts(motion", wheel)
+        self.assertIn("motion.penContact", wheel)
+        self.assertIn("offset.norm() <= 0.0001f", wheel)
+        self.assertIn("if(!boundingBox.has_value())", wheel)
+
     def test_current_upstream_input_contract(self):
         panel = source("src/DrawingProgram/DrawingProgram.cpp")
         self.assertIn("pointerDown == PointerDownState::MOUSE_LEFT", panel)
