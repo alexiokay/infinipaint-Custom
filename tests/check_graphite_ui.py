@@ -167,7 +167,8 @@ class GraphiteUI(unittest.TestCase):
         self.assertIn(".padding = { .left = padX, .right = padX, .top = padY, .bottom = padY }", btn_cpp)
 
         sel_btn = source("src/GUIStuff/Elements/SelectableButton.cpp")
-        self.assertIn("d.drawType != DrawType::TRANSPARENT_BORDER && d.drawType != DrawType::TRANSPARENT_ALL", sel_btn)
+        self.assertIn("if(d.isSelected)\n        borderColor = io.theme->frontColor1;\n    else if", sel_btn)
+        self.assertIn("if(d.isSelected)\n        backgroundColorHighlight", sel_btn)
 
 
 if __name__ == "__main__":

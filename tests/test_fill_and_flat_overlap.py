@@ -35,7 +35,7 @@ class FillAndFlatOverlapWiring(unittest.TestCase):
         dp = source("src/DrawingProgram/DrawingProgram.cpp")
         self.assertIn('"Fill Toolbar Button"', dp)
         self.assertIn('"data/icons/fill.svg"', dp)
-        self.assertIn('case DrawingProgramToolType::FILL: return "Fill Tool";', dp)
+        self.assertIn('case DrawingProgramToolType::FILL: return "Lasso Fill";', dp)
         self.assertIn('case DrawingProgramToolType::FILL: return "data/icons/fill.svg";', dp)
         fill = source("src/DrawingProgram/Tools/LassoFillTool.cpp")
         self.assertNotIn("t.quick_colors()", fill)
@@ -157,7 +157,10 @@ class FillAndFlatOverlapWiring(unittest.TestCase):
 
         lasso_cpp = source("src/DrawingProgram/Tools/LassoFillTool.cpp")
         self.assertNotIn("color_picker_color", lasso_cpp)
-        self.assertIn("bounds.width() >= 4.0f", lasso_cpp)
+        self.assertIn("bounds.width() > 0.0f", lasso_cpp)
+        self.assertIn("PolygonGeometry::hasArea(points)", lasso_cpp)
+        self.assertIn("vec_distance(controls.lastSampleScreen, motion.pos) >= 1.0f", lasso_cpp)
+        self.assertIn("endPt.allFinite()", lasso_cpp)
 
         tb_h = source("src/Toolbar.hpp")
         self.assertIn("colorLeftButton = nullptr;", tb_h)

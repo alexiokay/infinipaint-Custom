@@ -45,6 +45,7 @@ class LassoFillTool : public DrawingProgramToolBase {
         struct FillControls {
             ContactLifecycle<InputManager::MouseButtonCallbackArgs> contact;
             CoordSpaceHelper coords;
+            Vector2f lastSampleScreen{0.0f, 0.0f};
             std::vector<Vector2f> points;
         } controls;
 };

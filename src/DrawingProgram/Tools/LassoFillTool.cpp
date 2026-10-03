@@ -95,8 +95,13 @@ void LassoFillTool::input_mouse_button_on_canvas_callback(const InputManager::Mo
             Vector2f startPt = controls.coords.from_cam_space_to_this(drawP.world, button.pos);
             if (!startPt.allFinite()) return;
             controls.contact.begin(button);
+            controls.lastSampleScreen = button.pos;
             controls.points.emplace_back(startPt);
         } else if(!button.down && controls.contact.finish(button, button.deviceType == InputManager::MouseDeviceType::PEN)) {
+            const Vector2f endPt = controls.coords.from_cam_space_to_this(drawP.world, button.pos);
+            if(endPt.allFinite() && !controls.points.empty() &&
+               vec_distance(controls.points.back(), endPt) > 0.0f)
+                controls.points.emplace_back(endPt);
             if(controls.points.size() >= 3) {
                 SkPathBuilder pathBuilder;
                 pathBuilder.moveTo(controls.points[0].x(), controls.points[0].y());
@@ -110,7 +115,7 @@ void LassoFillTool::input_mouse_button_on_canvas_callback(const InputManager::Mo
                 std::vector<PolygonGeometry::Point> points;
                 points.reserve(controls.points.size());
                 for (const auto& point : controls.points) points.push_back({point.x(), point.y()});
-                if(bounds.width() >= 4.0f && bounds.height() >= 4.0f && PolygonGeometry::hasArea(points)) {
+                if(bounds.width() > 0.0f && bounds.height() > 0.0f && PolygonGeometry::hasArea(points)) {
                     CanvasComponentContainer* newContainer = new CanvasComponentContainer(drawP.world.netObjMan, CanvasComponentType::MESH);
                     MeshCanvasComponent& newMesh = static_cast<MeshCanvasComponent&>(newContainer->get_comp());
 
@@ -139,8 +144,10 @@ void LassoFillTool::input_mouse_button_on_canvas_callback(const InputManager::Mo
 void LassoFillTool::input_mouse_motion_callback(const InputManager::MouseMotionCallbackArgs& motion) {
     if(controls.contact.accepts(motion, motion.deviceType == InputManager::MouseDeviceType::PEN, motion.penContact)) {
         Vector2f pt = controls.coords.from_cam_space_to_this(drawP.world, motion.pos);
-        if(pt.allFinite() && vec_distance(controls.points.back(), pt) > 3.0f) {
+        // Sample in screen space so zooming does not change gesture resolution.
+        if(pt.allFinite() && vec_distance(controls.lastSampleScreen, motion.pos) >= 1.0f) {
             controls.points.emplace_back(pt);
+            controls.lastSampleScreen = motion.pos;
         }
     }
 }

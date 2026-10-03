@@ -40,17 +40,17 @@ void SelectableButton::layout(const Clay_ElementId& id, const Data& d) {
         else if(d.onClick) d.onClick();
     };
 
+    const bool showHover = !gui.last_interaction_is_touch() && isHovering;
     if(d.isSelected)
         borderColor = io.theme->frontColor1;
-    const bool showHover = !gui.last_interaction_is_touch() && isHovering;
-    if(isHeld || (showHover && d.drawType == DrawType::TRANSPARENT_BORDER))
+    else if(isHeld || (showHover && d.drawType == DrawType::TRANSPARENT_BORDER))
         borderColor = io.theme->fillColor1;
     else if(d.drawType == DrawType::TRANSPARENT_BORDER)
         borderColor = io.theme->backColor2;
     else
         borderColor = SkColor4f{0.0f, 0.0f, 0.0f, 0.0f};
 
-    if(d.isSelected && d.drawType != DrawType::TRANSPARENT_BORDER && d.drawType != DrawType::TRANSPARENT_ALL)
+    if(d.isSelected)
         backgroundColorHighlight = color_mul_alpha(io.theme->fillColor1, 0.4f);
     else if(showHover || isHeld)
         backgroundColorHighlight = color_mul_alpha(io.theme->fillColor1, 0.2f);

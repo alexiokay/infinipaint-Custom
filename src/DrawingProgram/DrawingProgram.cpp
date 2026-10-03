@@ -742,7 +742,7 @@ static const char* get_tool_title(DrawingProgramToolType type) {
     switch(type) {
         case DrawingProgramToolType::BRUSH: return "Brush Studio";
         case DrawingProgramToolType::ERASER: return "Eraser";
-        case DrawingProgramToolType::FILL: return "Fill Tool";
+        case DrawingProgramToolType::FILL: return "Lasso Fill";
         case DrawingProgramToolType::LASSOSELECT: return "Lasso Select";
         case DrawingProgramToolType::RECTSELECT: return "Rect Select";
         case DrawingProgramToolType::RECTANGLE: return "Rectangle";
