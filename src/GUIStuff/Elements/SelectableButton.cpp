@@ -93,6 +93,12 @@ void SelectableButton::layout(const Clay_ElementId& id, const Data& d) {
 }
 
 void SelectableButton::input_mouse_button_callback(const InputManager::MouseButtonCallbackArgs& button) {
+    if(button.button != InputManager::MouseButton::LEFT) return;
+    if(button.down) {
+        if(!mouseHovering || !contact.begin(button)) return;
+    } else if(!contact.finish(button, button.deviceType == InputManager::MouseDeviceType::PEN)) {
+        return;
+    }
     bool oldIsHeld = isHeld;
     if(button.deviceType == InputManager::MouseDeviceType::PEN) {
         if(button.button == InputManager::MouseButton::LEFT) {
@@ -136,6 +142,8 @@ void SelectableButton::input_mouse_button_callback(const InputManager::MouseButt
 }
 
 void SelectableButton::input_mouse_motion_callback(const InputManager::MouseMotionCallbackArgs& motion) {
+    if(contact.active() && !contact.accepts(motion,
+       motion.deviceType == InputManager::MouseDeviceType::PEN, motion.penContact)) return;
     if(motion.deviceType == InputManager::MouseDeviceType::PEN) {
         if(isHeld) {
             if((motion.pos - penStartPos).norm() > 8.0f) {
@@ -161,6 +169,7 @@ void SelectableButton::input_mouse_motion_callback(const InputManager::MouseMoti
 }
 
 void SelectableButton::input_finger_touch_callback(const FingerInput::TouchCallbackArgs& touch) {
+    if(contact.active()) return;
     if(!instantResponse && mouseHovering && touch.gesture && touch.gesture->get_type() == FingerInput::GestureType::TAP)
         gui.set_post_callback_func(onClick);
     switch(touch.action.type) {

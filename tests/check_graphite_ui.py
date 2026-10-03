@@ -25,6 +25,11 @@ class GraphiteUI(unittest.TestCase):
         self.assertIn("motion.penContact", wheel)
         self.assertIn("offset.norm() <= 0.0001f", wheel)
         self.assertIn("if(!boundingBox.has_value())", wheel)
+        button = source("src/GUIStuff/Elements/SelectableButton.cpp")
+        self.assertIn("contact.begin(button)", button)
+        self.assertIn("contact.finish(button", button)
+        self.assertIn("contact.accepts(motion", button)
+        self.assertIn("if(contact.active()) return;", button)
 
     def test_current_upstream_input_contract(self):
         panel = source("src/DrawingProgram/DrawingProgram.cpp")

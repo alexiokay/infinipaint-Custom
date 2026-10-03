@@ -17,6 +17,7 @@
  */
 
 #pragma once
+#include "../../ContactLifecycle.hpp"
 #include "Element.hpp"
 
 namespace GUIStuff {
@@ -52,6 +53,7 @@ class SelectableButton : public Element {
         virtual void input_finger_touch_callback(const FingerInput::TouchCallbackArgs& touch) override;
 
     private:
+        ContactLifecycle<InputManager::MouseButtonCallbackArgs> contact;
         bool inDynamicArea = false;
 
         bool instantResponse = false;

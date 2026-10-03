@@ -829,7 +829,7 @@ void DrawingProgram::tool_options_gui(Toolbar& t) {
             .mouseMotion = [this, available, anchorHeight](LayoutElement*, const InputManager::MouseMotionCallbackArgs& m) {
                 if (workspace_panel_locked()) return;
                 if (!toolPanelDragging || m.deviceType != toolPanelDragDevice ||
-                    (m.deviceType == InputManager::MouseDeviceType::PEN && m.penId != toolPanelDragPen)) return;
+                    (m.deviceType == InputManager::MouseDeviceType::PEN && (m.penId != toolPanelDragPen || !m.penContact))) return;
                 if ((m.pos - toolPanelDragStart).norm() > 4.0f) {
                     toolPanelDragMoved = true;
                 }
@@ -842,7 +842,7 @@ void DrawingProgram::tool_options_gui(Toolbar& t) {
                 }
             },
             .fingerTouch = [this, position, isCircle, available, anchorHeight](LayoutElement* l, const FingerInput::TouchCallbackArgs& f) {
-
+                if (workspace_panel_locked()) return;
                 if (toolPanelDragging && toolPanelDragDevice != InputManager::MouseDeviceType::TOUCH) return;
                 if (f.fingers.size() > 1) { toolPanelDragging = false; return; }
                 if (f.action.type == FingerInput::ActionType::DOWN && l->mouseHovering) {

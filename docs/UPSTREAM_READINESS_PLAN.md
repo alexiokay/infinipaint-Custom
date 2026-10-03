@@ -1,5 +1,50 @@
 # Upstream readiness plan
 
+## Custom UI/input audit — 2026-10-03
+
+Code-level scope: desktop toolbar, floating inspector, lock transitions,
+color picker/history, lasso fill, rotation wheel, GUI event dispatch, shared
+contact lifecycle, slider/scrollbar layout and pressure/correction separation.
+This is not a rendered-layout or physical-device certification.
+
+Confirmed defects repaired on `presentation-lock`:
+
+- Lock text controls widened the entire left rail and rotation wheel, and
+  changed width when toggled. Use fixed-size top-bar icons instead.
+- Fill rendered duplicate recent-color controls. Remove both inspector copies;
+  use the shared foreground color and explicitly label the tool Lasso Fill.
+- Picker drag updates polluted recent colors. Record completed gestures or
+  palette choices, not intermediate samples; remove all near-duplicate entries.
+- Selected button borders/highlights were overwritten. Preserve active-state
+  feedback, including transparent toolbar buttons.
+- Lasso sampling and minimum bounds depended on canvas zoom. Sample in screen
+  coordinates, include the finite release endpoint, retain non-collinearity
+  validation. This does not implement bucket/flood fill.
+- Rotation allowed foreign-device motion/releases and center normalization.
+  Bind the drag to its initiating contact and reject a zero-length direction.
+- Floating-panel touch dragging bypassed position locking. Apply the same
+  policy to mouse, pen and touch; ignore pen hover motion during panel drags.
+- Shared buttons could have a held pen action reset by another mouse/device.
+  Bind mouse/pen press and release to one contact, ignore non-left buttons and
+  foreign motion, and suppress touch activation during that owned contact.
+
+Reviewed contracts retained: GUI popovers obstruct canvas input; owned canvas
+releases are forwarded even outside the canvas; lasso tool switching and
+multitouch cancellation clear unfinished points; lock transitions finish the
+owning contact, clear navigation, and do not overwrite saved touch preferences.
+Inspector scrollbar gutters and slider thumb insets remain in place. Pressure
+mode and path correction remain independently configured.
+
+Acceptance still requires a Surface run of the exact built commit: immediate
+tool selection followed by a loop without opening a picker, pen release outside
+controls, picker drag/release, multitouch interruption, lock/unlock during
+navigation, all three panel drag devices, small windows and DPI scaling.
+The reported fill activation sequence is not reproduced or proven resolved.
+Source wiring tests cannot establish these runtime outcomes, performance,
+accessibility, or rendered clipping. Native geometry/contact CTest execution
+and full application compilation remain CI/native-host checks; no local build
+or prerequisite installation is performed.
+
 Scope: review of `graphite-ui` at 550dab4 against upstream main. This is a
 repair and extraction checklist, not a claim that all features are merge-ready.
 

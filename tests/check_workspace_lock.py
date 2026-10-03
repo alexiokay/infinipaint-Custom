@@ -19,6 +19,9 @@ class WorkspaceLockWiring(unittest.TestCase):
         self.assertNotIn("conf.disableTouchForDrawing =", text)
         self.assertIn("WorkspaceLock::blocksTouch", text)
         self.assertIn("toolBeforeWorkspaceLock", text)
+        drag = text.split("auto makeDragCallbacks", 1)[1].split("if (!toolPanelExpanded)", 1)[0]
+        self.assertEqual(drag.count("if (workspace_panel_locked()) return;"), 3)
+        self.assertIn("!m.penContact", drag)
 
     def test_mutation_entry_points_guarded(self):
         paths = {
