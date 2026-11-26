@@ -36,6 +36,7 @@
 
 #include "CustomEvents.hpp"
 #include "FingerInputTracker.hpp"
+#include "PenBarrelGesture.hpp"
 
 using namespace Eigen;
 class MainProgram;
@@ -96,6 +97,7 @@ struct InputManager {
         bool inProximity = false;
         bool isDown = false;
         bool isEraser = false;
+        PenBarrelGesture barrel;
         float pressure = 0.0f;
         uint8_t leftClicksSaved = 0;
         Vector2f previousPos = {0, 0};

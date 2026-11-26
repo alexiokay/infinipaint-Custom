@@ -81,6 +81,8 @@ nlohmann::json GlobalConfig::get_config_json(const InputManager& input) const {
     tablet["pressureAffectsBrushWidth"] = tabletOptions.pressureAffectsBrushWidth;
     tablet["middleClickButton"] = tabletOptions.middleClickButton;
     tablet["rightClickButton"] = tabletOptions.rightClickButton;
+    tablet["eraserButton"] = tabletOptions.eraserButton;
+    tablet["paletteOnHoverRelease"] = tabletOptions.paletteOnHoverRelease;
     tablet["ignoreMouseMovementWhenPenInProximity"] = tabletOptions.ignoreMouseMovementWhenPenInProximity;
     tablet["disableTouchWhenPenInProximity"] = tabletOptions.disableTouchWhenPenInProximity;
     tablet["brushMinimumSize"] = tabletOptions.brushMinimumSize;
@@ -176,6 +178,8 @@ void GlobalConfig::set_config_json(InputManager& input, const nlohmann::json& j,
     try{j.at("tablet").at("pressureAffectsBrushWidth").get_to(tabletOptions.pressureAffectsBrushWidth);} catch(...) {}
     try{j.at("tablet").at("middleClickButton").get_to(tabletOptions.middleClickButton);} catch(...) {}
     try{j.at("tablet").at("rightClickButton").get_to(tabletOptions.rightClickButton);} catch(...) {}
+    try{j.at("tablet").at("eraserButton").get_to(tabletOptions.eraserButton);} catch(...) {}
+    try{j.at("tablet").at("paletteOnHoverRelease").get_to(tabletOptions.paletteOnHoverRelease);} catch(...) {}
     try{j.at("tablet").at("ignoreMouseMovementWhenPenInProximity").get_to(tabletOptions.ignoreMouseMovementWhenPenInProximity);} catch(...) {}
     try{j.at("tablet").at("disableTouchWhenPenInProximity").get_to(tabletOptions.disableTouchWhenPenInProximity);} catch(...) {}
     try{j.at("tablet").at("brushMinimumSize").get_to(tabletOptions.brushMinimumSize);} catch(...) {}

@@ -487,12 +487,23 @@ void InputManager::backend_mouse_wheel_update(const SDL_MouseWheelEvent& e) {
 }
 
 void InputManager::backend_pen_button_down_update(const SDL_PenButtonEvent& e) {
+    if (pen.isDown && pen.activeId != e.which) return;
     Vector2f mouseNewPos = backend_cursor_pos_calculation({e.x, e.y});
     mouse.set_pos(mouseNewPos);
 
     pen.previousPos = mouseNewPos;
     pen.buttons[e.button].held = true;
     pen.isEraser = e.pen_state & SDL_PEN_INPUT_ERASER_TIP;
+
+    if (e.button && (e.button == main.conf.tabletOptions.eraserButton || pen.barrel.owns(e.which, e.button))) {
+        if (!pen.barrel.held()) {
+            pen.barrel = {e.which, e.button, main.conf.tabletOptions.paletteOnHoverRelease &&
+                !pen.isDown && !(e.pen_state & SDL_PEN_INPUT_DOWN)};
+            main.input_pen_button_callback({.button = e.button, .down = true, .pos = mouseNewPos});
+        }
+        isTouchDevice = false;
+        return;
+    }
 
     // Someone requested that one pen button be able to both middle click and right click at the same time, so don't turn this into an if-else statement
     if(e.button == main.conf.tabletOptions.middleClickButton) {
@@ -524,12 +535,29 @@ void InputManager::backend_pen_button_down_update(const SDL_PenButtonEvent& e) {
 }
 
 void InputManager::backend_pen_button_up_update(const SDL_PenButtonEvent& e) {
+    if (pen.isDown && pen.activeId != e.which) return;
     Vector2f mouseNewPos = backend_cursor_pos_calculation({e.x, e.y});
     mouse.set_pos(mouseNewPos);
 
     pen.previousPos = mouseNewPos;
     pen.buttons[e.button].held = false;
     pen.isEraser = e.pen_state & SDL_PEN_INPUT_ERASER_TIP;
+
+    if (pen.barrel.owns(e.which, e.button)) {
+        const bool openPalette = pen.barrel.paletteOnRelease && !pen.isDown && !(e.pen_state & SDL_PEN_INPUT_DOWN);
+        pen.barrel.reset();
+        main.input_pen_button_callback({.button = e.button, .down = false, .pos = mouseNewPos});
+        if (openPalette) {
+            for (bool down : {true, false}) {
+                main.input_mouse_button_callback({.deviceType = MouseDeviceType::PEN,
+                    .button = MouseButton::RIGHT, .down = down, .clicks = 1, .pos = mouseNewPos,
+                    .timestamp = e.timestamp, .penId = e.which});
+            }
+        }
+        isTouchDevice = false;
+        return;
+    }
+    if (e.button && e.button == main.conf.tabletOptions.eraserButton) return;
 
     if(e.button == main.conf.tabletOptions.middleClickButton) {
         main.input_mouse_button_callback({
@@ -566,6 +594,8 @@ void InputManager::backend_pen_touch_down_update(const SDL_PenTouchEvent& e) {
         pen.pressure = pressure;
     }
     pen.activeId = e.which;
+    if (pen.barrel.held() && pen.barrel.owner != e.which) pen.barrel.reset();
+    pen.barrel.touch(e.which);
     Vector2f mouseNewPos = backend_cursor_pos_calculation({e.x, e.y});
     mouse.set_pos(mouseNewPos);
 

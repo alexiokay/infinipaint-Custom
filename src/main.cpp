@@ -778,6 +778,8 @@ SDL_AppResult SDL_AppEvent(void *appstate, SDL_Event *event) {
                 break;
             }
             case SDL_EVENT_PEN_PROXIMITY_OUT: {
+                if (mS.m->input.pen.barrel.owner == event->pproximity.which)
+                    mS.m->input.pen.barrel.reset();
                 mS.m->input.end_pen_contact(event->common.timestamp);
                 mS.m->input.pen.inProximity = false;
                 break;
@@ -840,6 +842,7 @@ SDL_AppResult SDL_AppEvent(void *appstate, SDL_Event *event) {
                 break;
             }
             case SDL_EVENT_WINDOW_FOCUS_LOST: {
+                mS.m->input.pen.barrel.reset();
                 mS.m->input.end_pen_contact(event->common.timestamp);
                 mS.m->window.windowFocus = false;
                 mS.m->input_window_focus_lost();

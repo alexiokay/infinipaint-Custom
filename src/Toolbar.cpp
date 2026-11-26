@@ -1635,6 +1635,11 @@ void Toolbar::general_settings_inner_gui() {
                         checkbox_boolean_field(gui, "pen pressure width", "Pen pressure affects brush size", &main.conf.tabletOptions.pressureAffectsBrushWidth);
                         input_scalar_field<uint8_t>(gui, "middle click", "Middle click pen button", &main.conf.tabletOptions.middleClickButton, 1, 255);
                         input_scalar_field<uint8_t>(gui, "right click", "Right click pen button", &main.conf.tabletOptions.rightClickButton, 1, 255);
+                        input_scalar_field<uint8_t>(gui, "eraser button", "Hold for eraser (0 = off)", &main.conf.tabletOptions.eraserButton, 0, 255);
+                        if(main.conf.tabletOptions.eraserButton) {
+                            text_label_light(gui, "Eraser overrides middle/right click for this button.");
+                            checkbox_boolean_field(gui, "hover release palette", "Open palette on hover-only release", &main.conf.tabletOptions.paletteOnHoverRelease);
+                        }
                         text_label(gui, "Pressure response, minimum width and wobble correction are in the Brush inspector.");
                         checkbox_boolean_field(gui, "tablet zoom with button method", "Zoom when pen touching tablet and pen button assigned to middle click is held", &main.conf.tabletOptions.zoomWhilePenDownAndButtonHeld);
                         #ifdef _WIN32

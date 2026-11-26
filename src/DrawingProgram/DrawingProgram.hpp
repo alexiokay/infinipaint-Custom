@@ -159,6 +159,7 @@ class DrawingProgram {
             ZOOM
         };
         bool temporaryEraser = false;
+        std::optional<DrawingProgramToolType> toolBeforeBarrelEraser;
         TemporaryMoveToolSwitch tempMoveToolSwitch = TemporaryMoveToolSwitch::NONE;
         DrawingProgramToolType toolTypeAfterTempMove;
 

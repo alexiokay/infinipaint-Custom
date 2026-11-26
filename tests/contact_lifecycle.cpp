@@ -1,10 +1,19 @@
 #include "../src/ContactLifecycle.hpp"
+#include "../src/PenBarrelGesture.hpp"
 #include <iostream>
 #include <stdexcept>
 struct Event { int deviceType; unsigned penId; };
 static void require(bool value, const char* message) { if (!value) throw std::runtime_error(message); }
 int main() {
     try {
+        PenBarrelGesture barrel{10, 2, true};
+        require(barrel.owns(10, 2) && !barrel.owns(10, 1) && !barrel.owns(11, 2), "barrel ownership");
+        barrel.touch(11);
+        require(barrel.paletteOnRelease, "foreign contact cancelled hover click");
+        barrel.touch(10);
+        require(barrel.held() && !barrel.paletteOnRelease, "tip contact must consume hover click");
+        barrel.reset();
+        require(!barrel.held() && !barrel.paletteOnRelease, "cancelled press must not open palette");
         ContactLifecycle<Event> state;
         require(!state.accepts(Event{1,10}, true), "inactive motion");
         require(state.begin({1,10}), "begin pen");

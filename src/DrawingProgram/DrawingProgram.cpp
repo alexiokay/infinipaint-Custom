@@ -106,11 +106,13 @@ void DrawingProgram::set_workspace_lock(bool enabled) {
             input_mouse_button_callback(release);
         }
         pointerDown = lastTouch && !lastTouch->fingers.empty() ? PointerDownState::FINGER_DISABLED : PointerDownState::NONE;
-        toolBeforeWorkspaceLock = (temporaryEraser || tempMoveToolSwitch != TemporaryMoveToolSwitch::NONE)
-            ? toolTypeAfterTempMove : drawTool->get_type();
+        toolBeforeWorkspaceLock = toolBeforeBarrelEraser.value_or(
+            tempMoveToolSwitch != TemporaryMoveToolSwitch::NONE ? toolTypeAfterTempMove :
+            temporaryEraser ? DrawingProgramToolType::BRUSH : drawTool->get_type());
         if (world.main.toolConfig.workspaceLock.blockCanvasEdits) {
             tempMoveToolSwitch = TemporaryMoveToolSwitch::NONE;
             temporaryEraser = false;
+            toolBeforeBarrelEraser.reset();
             selection.deselect_all();
             switch_to_tool(DrawingProgramToolType::PAN, true);
         }
@@ -1072,6 +1074,8 @@ void DrawingProgram::modify_grid(const NetworkingObjects::NetObjWeakPtr<WorldGri
 }
 
 void DrawingProgram::update() {
+    // Focus/proximity loss can cancel a barrel press without another button event.
+    if (toolBeforeBarrelEraser && !world.main.input.pen.barrel.held()) pen_tool_switch_check();
     selection.update();
     drawTool->tool_update();
 
@@ -1084,6 +1088,21 @@ void DrawingProgram::update() {
 
 void DrawingProgram::pen_tool_switch_check() {
     if (workspace_edits_blocked()) return;
+    const bool barrelHeld = world.main.input.pen.barrel.held();
+    if (barrelHeld || toolBeforeBarrelEraser) {
+        // The tool that began a stroke must receive its tip-up before switching.
+        if (pointerDown != PointerDownState::NONE || tempMoveToolSwitch != TemporaryMoveToolSwitch::NONE) return;
+        if (barrelHeld && !toolBeforeBarrelEraser) {
+            toolBeforeBarrelEraser = temporaryEraser ? DrawingProgramToolType::BRUSH : drawTool->get_type();
+            temporaryEraser = false;
+            switch_to_tool(DrawingProgramToolType::ERASER);
+        } else if (!barrelHeld && toolBeforeBarrelEraser) {
+            if (drawTool->get_type() == DrawingProgramToolType::ERASER)
+                switch_to_tool(*toolBeforeBarrelEraser);
+            toolBeforeBarrelEraser.reset();
+        }
+        return;
+    }
     if(world.main.input.pen.isEraser && !temporaryEraser && tempMoveToolSwitch == TemporaryMoveToolSwitch::NONE) {
         if(drawTool->get_type() == DrawingProgramToolType::BRUSH)
             switch_to_tool(DrawingProgramToolType::ERASER);

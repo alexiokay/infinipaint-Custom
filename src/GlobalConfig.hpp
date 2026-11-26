@@ -81,6 +81,8 @@ class GlobalConfig {
             bool pressureAffectsBrushWidth = true;
             uint8_t middleClickButton = 1;
             uint8_t rightClickButton = 2;
+            uint8_t eraserButton = 0;
+            bool paletteOnHoverRelease = false;
             bool ignoreMouseMovementWhenPenInProximity = false;
             bool disableTouchWhenPenInProximity = false;
             float brushMinimumSize = 0.0f;
