@@ -16,6 +16,15 @@ def luminance(rgb):
 
 
 class GraphiteUI(unittest.TestCase):
+    def test_palette_shortcut_does_not_interrupt_canvas_contact(self):
+        code = source("src/DrawingProgram/DrawingProgram.cpp")
+        handler = code.split("void DrawingProgram::input_mouse_button_callback", 1)[1].split("\nvoid ", 1)[0]
+        right = handler.split("case InputManager::MouseButton::RIGHT:", 1)[1].split("break;", 1)[0]
+        self.assertIn("if(button.down && pointerDown != PointerDownState::MOUSE_LEFT)", right)
+        self.assertIn("clear_right_click_popup()", right)
+        self.assertIn("!world.main.g.gui.mouse_pointer_obstructed()", right)
+        self.assertIn("set_right_click_popup_location", right)
+
     def test_rotation_wheel_contact_ownership_and_center_guard(self):
         wheel = source("src/GUIStuff/Elements/RotateWheel.cpp")
         self.assertIn("if(button.button != InputManager::MouseButton::LEFT) return;", wheel)

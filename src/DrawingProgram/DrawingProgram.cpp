@@ -237,8 +237,9 @@ void DrawingProgram::input_mouse_button_callback(const InputManager::MouseButton
          (button.deviceType == InputManager::MouseDeviceType::PEN && button.penId != controls.leftPress.penId))) return;
     switch(button.button) {
         case InputManager::MouseButton::RIGHT:
-            if(button.down) {
-
+            // Preserve the pre-input-rewrite behavior: a pen barrel button
+            // must not open a palette in the middle of drawing or erasing.
+            if(button.down && pointerDown != PointerDownState::MOUSE_LEFT) {
                 if(rightClickPopupLocation.has_value())
                     clear_right_click_popup();
                 else if(!world.main.g.gui.mouse_pointer_obstructed())

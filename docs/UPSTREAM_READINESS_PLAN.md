@@ -1,5 +1,21 @@
 # Upstream readiness plan
 
+## Pen barrel-button palette regression — 2026-11-26
+
+Upstream input refactor `2098f36` removed the old `!controls.leftClickHeld`
+condition around the right-click popup. Restore its equivalent using
+`pointerDown != PointerDownState::MOUSE_LEFT`: right-click presses during a
+canvas mouse/pen drawing or erasing contact do not toggle the color circle.
+Hover right-click, ordinary idle mouse right-click and the deliberate combined
+middle/right-button mapping remain available. No button mapping, pressure,
+stabilization, Windows setting or saved configuration is changed.
+
+Source regression checks cover the guard and retained idle-popup path. On-device
+acceptance: hold the pen tip down while drawing/erasing, press/release each barrel
+button and verify no palette appears; lift the tip and verify the mapped
+right-click still toggles the palette. A hover-only reproduction, if present,
+requires separate event tracing and is not claimed fixed by this change.
+
 ## Custom UI/input audit — 2026-10-03
 
 Code-level scope: desktop toolbar, floating inspector, lock transitions,
